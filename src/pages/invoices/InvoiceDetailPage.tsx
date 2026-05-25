@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, Download, Send, Plus, Trash2, Copy, Check, ExternalLink } from 'lucide-react'
+import { ArrowLeft, Download, Send, Plus, Trash2 } from 'lucide-react'
 import { StatusBadge } from '../../components/ui/Badge'
 import { PaymentForm } from './PaymentForm'
-import { Modal } from '../../components/ui/Modal'
+import { SendInvoiceModal } from './SendInvoiceModal'
 import { useInvoice } from '../../hooks/useInvoices'
 import { deleteInvoice, fetchOrderItems } from '../../lib/invoices'
-import { generateInvoicePDF, buildEmailBody } from '../../lib/pdf'
+import { generateInvoicePDF } from '../../lib/pdf'
 import { formatCurrency, formatDate, VAT_RATE } from '../../utils/format'
 import { INVOICE_STATUS_MAP } from './InvoicesPage'
 import type { OrderItem } from '../../types/database'
@@ -14,14 +14,12 @@ import type { OrderItem } from '../../types/database'
 export function InvoiceDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { invoice, payments, loading, error, addPayment, removePayment, sendInvoice } = useInvoice(id!)
+  const { invoice, payments, loading, error, addPayment, removePayment, sendInvoice: markSent } = useInvoice(id!)
 
   const [orderItems, setOrderItems] = useState<OrderItem[]>([])
   const [paymentOpen, setPaymentOpen] = useState(false)
   const [sendOpen, setSendOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const [sending, setSending] = useState(false)
-  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     if (invoice?.order_id) {
@@ -45,37 +43,6 @@ export function InvoiceDetailPage() {
   async function handleDownloadPDF() {
     if (!invoice) return
     generateInvoicePDF(invoice, orderItems, payments)
-  }
-
-  async function handleConfirmSend() {
-    if (!invoice) return
-    setSending(true)
-    try {
-      await sendInvoice()
-      setSendOpen(false)
-    } catch (e) {
-      alert((e as Error).message)
-    } finally {
-      setSending(false)
-    }
-  }
-
-  async function handleCopyEmail() {
-    if (!invoice) return
-    const html = buildEmailBody(invoice, orderItems)
-    await navigator.clipboard.writeText(html)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-
-  function handleOpenMailto() {
-    if (!invoice) return
-    const subject = encodeURIComponent(`Invoice ${invoice.invoice_number} — TADI wa NASHE`)
-    const body = encodeURIComponent(
-      `Hi ${invoice.clients.full_name},\n\nPlease find your invoice ${invoice.invoice_number} attached.\n\nTotal: ${formatCurrency(invoice.total_amount)}\nDue: ${formatDate(invoice.due_date)}\n\nThank you,\nTadiwanashe\nTADI wa NASHE`
-    )
-    const to = invoice.clients.email ? encodeURIComponent(invoice.clients.email) : ''
-    window.location.href = `mailto:${to}?subject=${subject}&body=${body}`
   }
 
   if (loading) return <div className="page"><p className="state-msg">Loading…</p></div>
@@ -272,51 +239,14 @@ export function InvoiceDetailPage() {
         balanceDue={invoice.balance_due}
       />
 
-      {/* Send invoice modal */}
-      <Modal open={sendOpen} onClose={() => setSendOpen(false)} title="Send invoice" width="sm">
-        <div className="send-modal">
-          <p className="send-modal__desc">
-            Sending to <strong>{invoice.clients.full_name}</strong>
-            {invoice.clients.email && <> ({invoice.clients.email})</>}.
-          </p>
-
-          <div className="send-modal__options">
-            <button className="send-option" onClick={handleOpenMailto}>
-              <ExternalLink size={18} />
-              <div>
-                <strong>Open in Gmail</strong>
-                <span>Opens your Gmail with the invoice pre-filled</span>
-              </div>
-            </button>
-
-            <button className="send-option" onClick={handleCopyEmail}>
-              {copied ? <Check size={18} /> : <Copy size={18} />}
-              <div>
-                <strong>{copied ? 'Copied!' : 'Copy HTML email'}</strong>
-                <span>Copy the branded HTML to paste into any email client</span>
-              </div>
-            </button>
-
-            <button className="send-option" onClick={handleDownloadPDF}>
-              <Download size={18} />
-              <div>
-                <strong>Download PDF</strong>
-                <span>Save a branded PDF to attach manually</span>
-              </div>
-            </button>
-          </div>
-
-          <div className="send-modal__confirm">
-            <p className="send-modal__confirm-label">Mark as sent once you've sent the email:</p>
-            <div className="form__actions">
-              <button className="btn btn--secondary" onClick={() => setSendOpen(false)}>Close</button>
-              <button className="btn btn--primary" onClick={handleConfirmSend} disabled={sending}>
-                {sending ? 'Marking…' : 'Mark as sent'}
-              </button>
-            </div>
-          </div>
-        </div>
-      </Modal>
+      <SendInvoiceModal
+        open={sendOpen}
+        onClose={() => setSendOpen(false)}
+        onSent={markSent}
+        invoice={invoice}
+        items={orderItems}
+        payments={payments}
+      />
     </div>
   )
 }

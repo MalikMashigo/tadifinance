@@ -28,11 +28,7 @@ function cell(
   doc.text(text, align === 'right' ? x + w : align === 'center' ? x + w / 2 : x, y, { align })
 }
 
-export function generateInvoicePDF(
-  invoice: InvoiceWithClient,
-  items: OrderItem[],
-  payments: Payment[],
-): void {
+function buildInvoiceDoc(invoice: InvoiceWithClient, items: OrderItem[], payments: Payment[]): jsPDF {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
   const W = 210
   const margin = 14
@@ -237,8 +233,15 @@ export function generateInvoicePDF(
   doc.setTextColor(...MUTED)
   doc.text(TAGLINE, W / 2, y, { align: 'center' })
 
-  // ── Save ──────────────────────────────────────────────────────────────────
-  doc.save(`${invoice.invoice_number}.pdf`)
+  return doc
+}
+
+export function generateInvoicePDF(invoice: InvoiceWithClient, items: OrderItem[], payments: Payment[]): void {
+  buildInvoiceDoc(invoice, items, payments).save(`${invoice.invoice_number}.pdf`)
+}
+
+export function getInvoicePDFBase64(invoice: InvoiceWithClient, items: OrderItem[], payments: Payment[]): string {
+  return buildInvoiceDoc(invoice, items, payments).output('datauristring').split(',')[1]
 }
 
 export function buildEmailBody(
