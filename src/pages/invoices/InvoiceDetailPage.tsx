@@ -3,7 +3,6 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { ArrowLeft, Download, Send, Plus, Trash2 } from 'lucide-react'
 import { StatusBadge } from '../../components/ui/Badge'
 import { PaymentForm } from './PaymentForm'
-import { SendInvoiceModal } from './SendInvoiceModal'
 import { useInvoice } from '../../hooks/useInvoices'
 import { deleteInvoice, fetchOrderItems } from '../../lib/invoices'
 import { generateInvoicePDF } from '../../lib/pdf'
@@ -14,11 +13,10 @@ import type { OrderItem } from '../../types/database'
 export function InvoiceDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { invoice, payments, loading, error, addPayment, removePayment, sendInvoice: markSent } = useInvoice(id!)
+  const { invoice, payments, loading, error, addPayment, removePayment } = useInvoice(id!)
 
   const [orderItems, setOrderItems] = useState<OrderItem[]>([])
   const [paymentOpen, setPaymentOpen] = useState(false)
-  const [sendOpen, setSendOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
@@ -40,9 +38,20 @@ export function InvoiceDetailPage() {
     }
   }
 
-  async function handleDownloadPDF() {
+  function handleDownloadPDF() {
     if (!invoice) return
     generateInvoicePDF(invoice, orderItems, payments)
+  }
+
+  function handleSend() {
+    if (!invoice) return
+    generateInvoicePDF(invoice, orderItems, payments)
+    const to      = encodeURIComponent(invoice.clients.email ?? '')
+    const subject = encodeURIComponent(`Invoice ${invoice.invoice_number} — TADI wa NASHE`)
+    const body    = encodeURIComponent(
+      `Hi ${invoice.clients.full_name},\n\nPlease find your invoice ${invoice.invoice_number} attached.\n\nAmount due: ${formatCurrency(invoice.balance_due)}\nDue date: ${formatDate(invoice.due_date)}\n\nKind regards,\nTadiwanashe\nTADI wa NASHE`
+    )
+    window.open(`https://mail.google.com/mail/?view=cm&fs=1&to=${to}&su=${subject}&body=${body}`, '_blank')
   }
 
   if (loading) return <div className="page"><p className="state-msg">Loading…</p></div>
@@ -63,7 +72,7 @@ export function InvoiceDetailPage() {
             PDF
           </button>
           {!isPaid && (
-            <button className="btn btn--secondary" onClick={() => setSendOpen(true)}>
+            <button className="btn btn--secondary" onClick={handleSend}>
               <Send size={15} />
               Send
             </button>
@@ -239,14 +248,6 @@ export function InvoiceDetailPage() {
         balanceDue={invoice.balance_due}
       />
 
-      <SendInvoiceModal
-        open={sendOpen}
-        onClose={() => setSendOpen(false)}
-        onSent={markSent}
-        invoice={invoice}
-        items={orderItems}
-        payments={payments}
-      />
     </div>
   )
 }
