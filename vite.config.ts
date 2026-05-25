@@ -12,8 +12,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'logo.png'],
       manifest: {
-        name: 'TADI wa NASHE Finance',
-        short_name: 'TwN Finance',
+        name: 'TadiAgent',
+        short_name: 'TadiAgent',
         description: 'Finance & invoicing for TADI wa NASHE fashion label',
         theme_color: '#6e1e1e',
         background_color: '#faf8f6',
