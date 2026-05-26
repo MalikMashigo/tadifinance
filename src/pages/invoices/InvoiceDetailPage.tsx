@@ -38,14 +38,14 @@ export function InvoiceDetailPage() {
     }
   }
 
-  function handleDownloadPDF() {
+  async function handleDownloadPDF() {
     if (!invoice) return
-    generateInvoicePDF(invoice, orderItems, payments)
+    await generateInvoicePDF(invoice, orderItems, payments)
   }
 
-  function handleSend() {
+  async function handleSend() {
     if (!invoice) return
-    generateInvoicePDF(invoice, orderItems, payments)
+    await generateInvoicePDF(invoice, orderItems, payments)
     const to      = encodeURIComponent(invoice.clients.email ?? '')
     const subject = encodeURIComponent(`Invoice ${invoice.invoice_number} — TADI wa NASHE`)
     const body    = encodeURIComponent(

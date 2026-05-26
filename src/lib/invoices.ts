@@ -150,6 +150,19 @@ export async function recordPayment(payload: PaymentInsert): Promise<Payment> {
   return data
 }
 
+export interface PaymentWithInvoice extends Payment {
+  invoices: { invoice_number: string; clients: { full_name: string } }
+}
+
+export async function fetchAllPayments(): Promise<PaymentWithInvoice[]> {
+  const { data, error } = await supabase
+    .from('payments')
+    .select('*, invoices(invoice_number, clients(full_name))')
+    .order('payment_date', { ascending: false })
+  if (error) throw error
+  return data as unknown as PaymentWithInvoice[]
+}
+
 export async function fetchOrderItems(orderId: string) {
   const { data, error } = await supabase
     .from('order_items')

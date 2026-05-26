@@ -33,7 +33,7 @@ export function SendInvoiceModal({ open, onClose, onSent, invoice, items, paymen
     setError(null)
     setSending(true)
     try {
-      const pdfBase64 = getInvoicePDFBase64(invoice, items, payments)
+      const pdfBase64 = await getInvoicePDFBase64(invoice, items, payments)
       await sendInvoiceEmail({ to: to.trim(), subject, html: htmlBody, pdfBase64, invoiceNumber: invoice.invoice_number })
       setSent(true)
       setTimeout(() => { onSent(); onClose() }, 1500)

@@ -1,253 +1,284 @@
 import jsPDF from 'jspdf'
+import tadiLogoUrl from '../assets/tadi.jpg'
 import type { InvoiceWithClient } from './invoices'
 import type { OrderItem, Payment } from '../types/database'
 import { formatCurrency, formatDate, VAT_RATE } from '../utils/format'
 
-const BRAND = 'TADI wa NASHE'
-const TAGLINE = '"Tadi wa Nashe" — We belong to God'
 type RGB = [number, number, number]
 const INK: RGB    = [26, 26, 24]
 const MUTED: RGB  = [107, 104, 96]
 const ACCENT: RGB = [184, 132, 90]
 const BORDER: RGB = [229, 227, 222]
+const GREEN: RGB  = [74, 124, 89]
+const TAGLINE = '"Tadi wa Nashe" — We belong to God'
 
-function drawHRule(doc: jsPDF, y: number, x1 = 14, x2 = 196, colour: RGB = BORDER) {
+const W      = 210
+const M      = 14   // margin
+const RIGHT  = W - M  // 196
+
+function hr(doc: jsPDF, y: number, colour: RGB = BORDER) {
   doc.setDrawColor(...colour)
   doc.setLineWidth(0.3)
-  doc.line(x1, y, x2, y)
+  doc.line(M, y, RIGHT, y)
 }
 
-function cell(
-  doc: jsPDF,
-  text: string,
-  x: number,
-  y: number,
-  w: number,
-  align: 'left' | 'right' | 'center' = 'left',
-) {
-  doc.text(text, align === 'right' ? x + w : align === 'center' ? x + w / 2 : x, y, { align })
+function trunc(s: string, max: number) {
+  return s.length > max ? s.slice(0, max - 1) + '…' : s
 }
 
-function buildInvoiceDoc(invoice: InvoiceWithClient, items: OrderItem[], payments: Payment[]): jsPDF {
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' })
-  const W = 210
-  const margin = 14
-  let y = 18
-
-  // ── Brand header ──────────────────────────────────────────────────────────
-  doc.setFont('times', 'normal')
-  doc.setFontSize(20)
-  doc.setTextColor(...INK)
-  doc.text(BRAND, margin, y)
-
-  doc.setFontSize(8)
-  doc.setTextColor(...ACCENT)
-  doc.text(TAGLINE, margin, y + 5)
-
-  // INVOICE label (right)
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(22)
-  doc.setTextColor(...INK)
-  doc.text('INVOICE', W - margin, y, { align: 'right' })
-
-  y += 12
-  drawHRule(doc, y, margin, W - margin, ACCENT)
-  y += 7
-
-  // ── Invoice meta (right column) ───────────────────────────────────────────
-  const metaX = W - margin - 60
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(9)
-
-  const meta = [
-    ['Invoice no.', invoice.invoice_number],
-    ['Issue date', formatDate(invoice.issue_date)],
-    ['Due date', formatDate(invoice.due_date)],
-    ['Status', invoice.status.replace('_', ' ').toUpperCase()],
-  ]
-
-  meta.forEach(([label, value], i) => {
-    doc.setTextColor(...MUTED)
-    doc.text(label, metaX, y + i * 5.5)
-    doc.setTextColor(...INK)
-    doc.setFont('helvetica', 'bold')
-    doc.text(value, W - margin, y + i * 5.5, { align: 'right' })
-    doc.setFont('helvetica', 'normal')
+function loadLogo(): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => {
+      const c = document.createElement('canvas')
+      c.width = img.width
+      c.height = img.height
+      c.getContext('2d')!.drawImage(img, 0, 0)
+      resolve(c.toDataURL('image/jpeg'))
+    }
+    img.onerror = () => resolve('')
+    img.src = tadiLogoUrl
   })
+}
 
-  // ── Bill to (left column) ─────────────────────────────────────────────────
-  doc.setFontSize(8)
-  doc.setTextColor(...MUTED)
-  doc.setFont('helvetica', 'bold')
-  doc.text('BILL TO', margin, y)
+// Column positions (content width = 182mm)
+// Description: 14–120 (106mm) | Qty: right-edge 138 | Price: right-edge 170 | Total: right-edge 196
+const QTY_EDGE   = 138
+const PRICE_EDGE = 170
+const TOTAL_EDGE = RIGHT  // 196
 
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(10)
-  doc.setTextColor(...INK)
-  doc.text(invoice.clients.full_name, margin, y + 6)
+// Totals label column
+const TOTAL_LABEL_X = M + 95  // 109 — labels left-aligned here
 
-  if (invoice.clients.email) {
-    doc.setFontSize(9)
-    doc.setTextColor(...MUTED)
-    doc.text(invoice.clients.email, margin, y + 11)
+async function buildInvoiceDoc(
+  invoice: InvoiceWithClient,
+  items: OrderItem[],
+  payments: Payment[],
+): Promise<jsPDF> {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' })
+  let y = M
+
+  // ── Header: logo left, INVOICE right ─────────────────────────────────────
+  const logoData = await loadLogo()
+  const LOGO = 26
+
+  if (logoData) {
+    doc.addImage(logoData, 'JPEG', M, y, LOGO, LOGO)
+  } else {
+    doc.setFont('times', 'normal')
+    doc.setFontSize(16)
+    doc.setTextColor(...INK)
+    doc.text('TADI wa NASHE', M, y + 10)
   }
 
-  y += meta.length * 5.5 + 8
-  drawHRule(doc, y)
-  y += 8
-
-  // ── Line items table ──────────────────────────────────────────────────────
-  const cols = { item: margin, details: margin + 68, qty: margin + 120, price: margin + 145, total: W - margin }
-
-  // Table header
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(8)
-  doc.setTextColor(...MUTED)
-  doc.text('ITEM', cols.item, y)
-  doc.text('DETAILS', cols.details, y)
-  cell(doc, 'QTY', cols.qty, y, 25, 'right')
-  cell(doc, 'UNIT PRICE', cols.price, y, 31, 'right')
-  cell(doc, 'TOTAL', cols.total, y, 0, 'right')
-
-  y += 3
-  drawHRule(doc, y)
-  y += 5
+  doc.setFontSize(26)
+  doc.setTextColor(...INK)
+  doc.text('INVOICE', RIGHT, y + 9, { align: 'right' })
 
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(9)
+  doc.setTextColor(...MUTED)
+  doc.text(invoice.invoice_number, RIGHT, y + 16, { align: 'right' })
+
+  y += LOGO + 8
+  hr(doc, y, ACCENT)
+  y += 8
+
+  // ── Bill To (left) + Meta (right) ─────────────────────────────────────────
+  const META_X = M + 110  // meta labels start here
+
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(7)
+  doc.setTextColor(...MUTED)
+  doc.text('BILL TO', M, y)
+
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(11)
   doc.setTextColor(...INK)
+  doc.text(trunc(invoice.clients.full_name, 34), M, y + 6)
+
+  if (invoice.clients.email) {
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(8.5)
+    doc.setTextColor(...MUTED)
+    doc.text(trunc(invoice.clients.email, 38), M, y + 12)
+  }
+
+  const metaRows: [string, string][] = [
+    ['Issue date', formatDate(invoice.issue_date)],
+    ['Due date',   formatDate(invoice.due_date)],
+    ['Status',     invoice.status.replace(/_/g, ' ').toUpperCase()],
+  ]
+
+  metaRows.forEach(([label, value], i) => {
+    const ry = y + i * 6.5
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(8.5)
+    doc.setTextColor(...MUTED)
+    doc.text(label, META_X, ry)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(...INK)
+    doc.text(value, RIGHT, ry, { align: 'right' })
+  })
+
+  y += 26
+  hr(doc, y)
+  y += 8
+
+  // ── Items table ───────────────────────────────────────────────────────────
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(7)
+  doc.setTextColor(...MUTED)
+  doc.text('DESCRIPTION', M, y)
+  doc.text('QTY',        QTY_EDGE,   y, { align: 'right' })
+  doc.text('UNIT PRICE', PRICE_EDGE, y, { align: 'right' })
+  doc.text('TOTAL',      TOTAL_EDGE, y, { align: 'right' })
+
+  y += 3
+  hr(doc, y)
+  y += 5
 
   if (items.length === 0) {
-    // Standalone invoice — show a single line for the total amount
-    const sub = invoice.subtotal
-    doc.text(invoice.notes ?? 'Professional services', cols.item, y)
-    cell(doc, '1', cols.qty, y, 25, 'right')
-    cell(doc, formatCurrency(sub), cols.price, y, 31, 'right')
-    cell(doc, formatCurrency(sub), cols.total, y, 0, 'right')
-    y += 7
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9)
+    doc.setTextColor(...INK)
+    doc.text(trunc(invoice.notes ?? 'Professional services', 52), M, y)
+    doc.setFont('helvetica', 'bold')
+    doc.text('1',                                QTY_EDGE,   y, { align: 'right' })
+    doc.text(formatCurrency(invoice.subtotal),   PRICE_EDGE, y, { align: 'right' })
+    doc.text(formatCurrency(invoice.subtotal),   TOTAL_EDGE, y, { align: 'right' })
+    y += 9
   } else {
     items.forEach((item) => {
-      if (y > 245) {
-        doc.addPage()
-        y = 18
-      }
+      if (y > 242) { doc.addPage(); y = M + 10 }
+
+      // Name row
       doc.setFont('helvetica', 'bold')
-      doc.text(item.garment_name, cols.item, y)
-      doc.setFont('helvetica', 'normal')
-
-      const details = [item.garment_type, item.fabric, item.colour, item.size]
-        .filter(Boolean).join(', ')
-      doc.setFontSize(8)
-      doc.setTextColor(...MUTED)
-      doc.text(details.substring(0, 42), cols.details, y)
-
       doc.setFontSize(9)
       doc.setTextColor(...INK)
-      cell(doc, String(item.quantity), cols.qty, y, 25, 'right')
-      cell(doc, formatCurrency(item.unit_price), cols.price, y, 31, 'right')
-      cell(doc, formatCurrency(item.line_total), cols.total, y, 0, 'right')
+      doc.text(trunc(item.garment_name, 48), M, y)
+      doc.text(String(item.quantity),             QTY_EDGE,   y, { align: 'right' })
+      doc.text(formatCurrency(item.unit_price),   PRICE_EDGE, y, { align: 'right' })
+      doc.text(formatCurrency(item.line_total),   TOTAL_EDGE, y, { align: 'right' })
+
+      // Details sub-row
+      const details = [item.garment_type, item.fabric, item.colour, item.size]
+        .filter(Boolean).join(' · ')
+      if (details) {
+        y += 5
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(7.5)
+        doc.setTextColor(...MUTED)
+        doc.text(trunc(details, 58), M, y)
+      }
+
       y += 7
+      hr(doc, y - 1, BORDER)
     })
   }
 
-  drawHRule(doc, y)
-  y += 6
+  y += 5
 
   // ── Totals ────────────────────────────────────────────────────────────────
-  const totalsLabelX = W - margin - 70
-  const totalsValueX = W - margin
-
-  function totalsRow(label: string, value: string, bold = false, colour: RGB = INK) {
-    doc.setFont('helvetica', bold ? 'bold' : 'normal')
-    doc.setFontSize(bold ? 10 : 9)
+  function totalsRow(
+    label: string,
+    value: string,
+    opts: { bold?: boolean; colour?: RGB; lineAbove?: boolean } = {},
+  ) {
+    if (opts.lineAbove) {
+      hr(doc, y - 2, BORDER)
+      y += 2
+    }
+    doc.setFont('helvetica', opts.bold ? 'bold' : 'normal')
+    doc.setFontSize(opts.bold ? 10 : 9)
     doc.setTextColor(...MUTED)
-    doc.text(label, totalsLabelX, y)
-    doc.setTextColor(...colour)
-    doc.text(value, totalsValueX, y, { align: 'right' })
-    y += bold ? 7 : 5.5
+    doc.text(label, TOTAL_LABEL_X, y)
+    doc.setFont('helvetica', opts.bold ? 'bold' : 'normal')
+    doc.setTextColor(...(opts.colour ?? INK))
+    doc.text(value, TOTAL_EDGE, y, { align: 'right' })
+    y += opts.bold ? 7 : 5.5
   }
 
   totalsRow('Subtotal', formatCurrency(invoice.subtotal))
   totalsRow(`VAT (${(VAT_RATE * 100).toFixed(0)}%)`, formatCurrency(invoice.vat_amount))
-
-  drawHRule(doc, y - 2, totalsLabelX, W - margin)
-  y += 1
-
-  totalsRow('TOTAL', formatCurrency(invoice.total_amount), true)
+  totalsRow('TOTAL', formatCurrency(invoice.total_amount), { bold: true, lineAbove: true })
 
   if (invoice.amount_paid > 0) {
-    totalsRow('Amount paid', `− ${formatCurrency(invoice.amount_paid)}`, false, [74, 124, 89] as RGB)
-    drawHRule(doc, y - 2, totalsLabelX, W - margin)
-    y += 1
-    totalsRow('BALANCE DUE', formatCurrency(invoice.balance_due), true)
+    totalsRow(`Amount paid`, `– ${formatCurrency(invoice.amount_paid)}`, { colour: GREEN })
+    totalsRow('BALANCE DUE', formatCurrency(invoice.balance_due), { bold: true, lineAbove: true })
   }
 
-  y += 6
+  y += 8
 
   // ── Payment history ───────────────────────────────────────────────────────
   if (payments.length > 0) {
-    drawHRule(doc, y)
-    y += 6
+    if (y > 242) { doc.addPage(); y = M + 10 }
+    hr(doc, y)
+    y += 7
 
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(8)
+    doc.setFontSize(7)
     doc.setTextColor(...MUTED)
-    doc.text('PAYMENT HISTORY', margin, y)
+    doc.text('PAYMENT HISTORY', M, y)
     y += 5
 
     payments.forEach((p) => {
+      const ref = p.reference ? `  ·  Ref: ${p.reference}` : ''
       doc.setFont('helvetica', 'normal')
-      doc.setFontSize(9)
+      doc.setFontSize(8.5)
       doc.setTextColor(...MUTED)
-      doc.text(`${formatDate(p.payment_date)}  ·  ${p.payment_method}${p.reference ? `  ·  Ref: ${p.reference}` : ''}`, margin, y)
-      doc.setTextColor(...INK)
-      doc.text(formatCurrency(p.amount), W - margin, y, { align: 'right' })
-      y += 5.5
+      doc.text(`${formatDate(p.payment_date)}  ·  ${p.payment_method}${ref}`, M, y)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(...GREEN)
+      doc.text(formatCurrency(p.amount), RIGHT, y, { align: 'right' })
+      y += 6
     })
 
     y += 4
   }
 
-  // ── Banking details ───────────────────────────────────────────────────────
-  y = Math.max(y, 200)
-  drawHRule(doc, y, margin, W - margin, ACCENT)
+  // ── Banking / footer ──────────────────────────────────────────────────────
+  y = Math.max(y, 218)
+  hr(doc, y, ACCENT)
   y += 6
 
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(8)
+  doc.setFontSize(7)
   doc.setTextColor(...ACCENT)
-  doc.text('BANKING DETAILS', margin, y)
-  y += 5
-
+  doc.text('PAYMENT REFERENCE', M, y)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(...MUTED)
-  doc.text('Please use your invoice number as the payment reference.', margin, y)
+  doc.text('Please use your invoice number as the payment reference.', M + 38, y)
 
-  // ── Footer ────────────────────────────────────────────────────────────────
-  y = 280
-  drawHRule(doc, y, margin, W - margin, BORDER)
-  y += 5
-
+  hr(doc, 283, BORDER)
   doc.setFont('times', 'italic')
-  doc.setFontSize(8)
+  doc.setFontSize(7.5)
   doc.setTextColor(...MUTED)
-  doc.text(TAGLINE, W / 2, y, { align: 'center' })
+  doc.text(TAGLINE, W / 2, 288, { align: 'center' })
 
   return doc
 }
 
-export function generateInvoicePDF(invoice: InvoiceWithClient, items: OrderItem[], payments: Payment[]): void {
-  buildInvoiceDoc(invoice, items, payments).save(`${invoice.invoice_number}.pdf`)
-}
-
-export function getInvoicePDFBase64(invoice: InvoiceWithClient, items: OrderItem[], payments: Payment[]): string {
-  return buildInvoiceDoc(invoice, items, payments).output('datauristring').split(',')[1]
-}
-
-export function buildEmailBody(
+export async function generateInvoicePDF(
   invoice: InvoiceWithClient,
   items: OrderItem[],
-): string {
+  payments: Payment[],
+): Promise<void> {
+  const doc = await buildInvoiceDoc(invoice, items, payments)
+  doc.save(`${invoice.invoice_number}.pdf`)
+}
+
+export async function getInvoicePDFBase64(
+  invoice: InvoiceWithClient,
+  items: OrderItem[],
+  payments: Payment[],
+): Promise<string> {
+  const doc = await buildInvoiceDoc(invoice, items, payments)
+  return doc.output('datauristring').split(',')[1]
+}
+
+export function buildEmailBody(invoice: InvoiceWithClient, items: OrderItem[]): string {
   const itemRows = items.length > 0
     ? items.map((i) =>
         `<tr>
