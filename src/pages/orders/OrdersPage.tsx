@@ -11,30 +11,24 @@ import type { OrderStatus, OrderType } from '../../types/database'
 interface OutletCtx { openSidebar: () => void }
 
 const STATUS_FILTERS: { label: string; value: OrderStatus | 'all' }[] = [
-  { label: 'All', value: 'all' },
-  { label: 'Consult', value: 'consult' },
-  { label: 'Pattern', value: 'pattern' },
-  { label: 'Cutting', value: 'cutting' },
-  { label: 'Sewing', value: 'sewing' },
-  { label: 'Fitting', value: 'fitting' },
+  { label: 'All',      value: 'all'      },
+  { label: 'Consult',  value: 'consult'  },
+  { label: 'Service',  value: 'service'  },
   { label: 'Complete', value: 'complete' },
-  { label: 'Delivered', value: 'delivered' },
+  { label: 'Delivery', value: 'delivery' },
 ]
 
 const STATUS_MAP: Record<OrderStatus, { label: string; colour: string }> = {
-  consult:   { label: 'Consult',   colour: 'blue' },
-  pattern:   { label: 'Pattern',   colour: 'amber' },
-  cutting:   { label: 'Cutting',   colour: 'amber' },
-  sewing:    { label: 'Sewing',    colour: 'accent' },
-  fitting:   { label: 'Fitting',   colour: 'accent' },
-  complete:  { label: 'Complete',  colour: 'green' },
-  delivered: { label: 'Delivered', colour: 'green' },
+  consult:  { label: 'Consult',  colour: 'blue'  },
+  service:  { label: 'Service',  colour: 'amber' },
+  complete: { label: 'Complete', colour: 'green' },
+  delivery: { label: 'Delivery', colour: 'green' },
 }
 
 const TYPE_LABELS: Record<OrderType, string> = {
-  bespoke: 'Bespoke',
-  collection: 'Collection',
-  alteration: 'Alteration',
+  bespoke:     'Bespoke',
+  outsourcing: 'Outsourcing',
+  alteration:  'Alteration',
 }
 
 export function OrdersPage() {

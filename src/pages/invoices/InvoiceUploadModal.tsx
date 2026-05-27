@@ -139,14 +139,15 @@ export function InvoiceUploadModal({ open, onClose, onImported }: Props) {
           clientId = exact.id
         } else {
           const created = await createClient({
-            full_name: clientQuery.trim(),
-            email: null,
-            phone: null,
-            address: null,
-            city: null,
-            country: 'ZA',
-            client_type: 'retail',
-            notes: null,
+            full_name:        clientQuery.trim(),
+            email:            null,
+            phone:            null,
+            address:          null,
+            city:             null,
+            country:          'ZA',
+            client_type:      'retail',
+            size_system:      null,
+            notes:            null,
             style_preferences: null,
           })
           clientId = created.id
