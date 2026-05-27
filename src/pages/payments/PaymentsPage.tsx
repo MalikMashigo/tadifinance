@@ -39,7 +39,10 @@ export function PaymentsPage() {
 
         {!loading && !error && payments.length === 0 && (
           <div className="empty-state">
-            <p>No payments yet. Record a payment from an invoice to see it here.</p>
+            <p>No payments recorded yet.</p>
+            <button className="btn btn--primary" onClick={() => navigate('/invoices')}>
+              Go to invoices
+            </button>
           </div>
         )}
 
