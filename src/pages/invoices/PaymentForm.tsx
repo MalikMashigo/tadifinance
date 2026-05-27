@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Modal } from '../../components/ui/Modal'
 import { Field, Input, Textarea, Select } from '../../components/ui/Field'
 import type { PaymentInsert } from '../../lib/invoices'
@@ -14,13 +14,26 @@ interface PaymentFormProps {
 function today() { return new Date().toISOString().split('T')[0] }
 
 export function PaymentForm({ open, onClose, onSubmit, balanceDue }: PaymentFormProps) {
-  const [amount, setAmount] = useState(balanceDue > 0 ? balanceDue.toFixed(2) : '')
-  const [method, setMethod] = useState<PaymentMethod>('EFT')
+  const [amount,    setAmount]    = useState('')
+  const [method,    setMethod]    = useState<PaymentMethod>('EFT')
   const [reference, setReference] = useState('')
-  const [date, setDate] = useState(today())
-  const [notes, setNotes] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [date,      setDate]      = useState(today())
+  const [notes,     setNotes]     = useState('')
+  const [saving,    setSaving]    = useState(false)
+  const [error,     setError]     = useState<string | null>(null)
+
+  // Reset the whole form each time the modal opens
+  useEffect(() => {
+    if (open) {
+      setAmount(balanceDue > 0 ? balanceDue.toFixed(2) : '')
+      setMethod('EFT')
+      setReference('')
+      setDate(today())
+      setNotes('')
+      setError(null)
+      setSaving(false)
+    }
+  }, [open, balanceDue])
 
   async function handleSubmit(e: { preventDefault(): void }) {
     e.preventDefault()
@@ -30,11 +43,11 @@ export function PaymentForm({ open, onClose, onSubmit, balanceDue }: PaymentForm
     setError(null)
     try {
       await onSubmit({
-        amount: amt,
-        payment_method: method,
-        reference: reference.trim() || null,
-        payment_date: date,
-        notes: notes.trim() || null,
+        amount:          amt,
+        payment_method:  method,
+        reference:       reference.trim() || null,
+        payment_date:    date,
+        notes:           notes.trim() || null,
       })
       onClose()
     } catch (e) {
@@ -65,7 +78,7 @@ export function PaymentForm({ open, onClose, onSubmit, balanceDue }: PaymentForm
               className="field-hint-btn"
               onClick={() => setAmount(balanceDue.toFixed(2))}
             >
-              Use balance due: R {balanceDue.toFixed(2)}
+              Use balance: R {balanceDue.toFixed(2)}
             </button>
           )}
         </Field>
@@ -109,6 +122,7 @@ export function PaymentForm({ open, onClose, onSubmit, balanceDue }: PaymentForm
             {saving ? 'Saving…' : 'Record payment'}
           </button>
         </div>
+
       </form>
     </Modal>
   )

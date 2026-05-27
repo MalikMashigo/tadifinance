@@ -93,16 +93,23 @@ export async function deletePayment(paymentId: string, invoiceId: string): Promi
   const { error } = await supabase.from('payments').delete().eq('id', paymentId)
   if (error) throw error
 
-  // Recalculate invoice totals after deletion
-  const { data: allPayments } = await supabase
+  const { data: allPayments, error: paymentsError } = await supabase
     .from('payments').select('amount').eq('invoice_id', invoiceId)
+  if (paymentsError) throw paymentsError
+
   const totalPaid = (allPayments ?? []).reduce((s: number, p: { amount: number }) => s + p.amount, 0)
-  const { data: inv } = await supabase
+
+  const { data: inv, error: invError } = await supabase
     .from('invoices').select('total_amount').eq('id', invoiceId).single()
+  if (invError) throw invError
+
   const totalAmount = (inv as { total_amount: number } | null)?.total_amount ?? 0
   const balance = Math.max(0, totalAmount - totalPaid)
   const status: InvoiceStatus = balance === 0 && totalPaid > 0 ? 'paid' : totalPaid > 0 ? 'partially_paid' : 'sent'
-  await supabase.from('invoices').update({ amount_paid: totalPaid, balance_due: balance, status }).eq('id', invoiceId)
+
+  const { error: updateError } = await supabase
+    .from('invoices').update({ amount_paid: totalPaid, balance_due: balance, status }).eq('id', invoiceId)
+  if (updateError) throw updateError
 }
 
 export async function fetchPayments(invoiceId: string): Promise<Payment[]> {
@@ -123,29 +130,23 @@ export async function recordPayment(payload: PaymentInsert): Promise<Payment> {
     .single()
   if (error) throw error
 
-  // Recalculate invoice amounts
-  const { data: allPayments } = await supabase
-    .from('payments')
-    .select('amount')
-    .eq('invoice_id', payload.invoice_id)
-
-  const totalPaid = (allPayments ?? []).reduce((s: number, p: { amount: number }) => s + p.amount, 0)
-
-  const { data: inv } = await supabase
+  const { data: inv, error: invError } = await supabase
     .from('invoices')
-    .select('total_amount')
+    .select('total_amount, amount_paid')
     .eq('id', payload.invoice_id)
     .single()
+  if (invError) throw invError
 
-  const totalAmount = (inv as { total_amount: number } | null)?.total_amount ?? 0
-  const balance = Math.max(0, totalAmount - totalPaid)
-  const status: InvoiceStatus =
-    balance === 0 ? 'paid' : totalPaid > 0 ? 'partially_paid' : 'sent'
+  const { total_amount, amount_paid } = inv as { total_amount: number; amount_paid: number }
+  const newAmountPaid = amount_paid + payload.amount
+  const balance      = Math.max(0, total_amount - newAmountPaid)
+  const status: InvoiceStatus = balance === 0 ? 'paid' : 'partially_paid'
 
-  await supabase
+  const { error: updateError } = await supabase
     .from('invoices')
-    .update({ amount_paid: totalPaid, balance_due: balance, status })
+    .update({ amount_paid: newAmountPaid, balance_due: balance, status })
     .eq('id', payload.invoice_id)
+  if (updateError) throw updateError
 
   return data
 }

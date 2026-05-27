@@ -57,7 +57,8 @@ export function InvoiceDetailPage() {
   if (loading) return <div className="page"><p className="state-msg">Loading…</p></div>
   if (error || !invoice) return <div className="page"><p className="state-msg state-msg--error">{error ?? 'Invoice not found.'}</p></div>
 
-  const isPaid = invoice.status === 'paid'
+  const isPaid      = invoice.status === 'paid'
+  const hasBalance  = invoice.balance_due > 0
 
   return (
     <div className="page">
@@ -77,7 +78,7 @@ export function InvoiceDetailPage() {
               Send
             </button>
           )}
-          {!isPaid && (
+          {hasBalance && (
             <button className="btn btn--accent" onClick={() => setPaymentOpen(true)}>
               <Plus size={15} />
               Record payment
@@ -192,7 +193,7 @@ export function InvoiceDetailPage() {
         <section className="detail-section">
           <div className="detail-section__heading">
             <h3>Payments</h3>
-            {!isPaid && (
+            {hasBalance && (
               <button className="btn btn--secondary btn--sm" onClick={() => setPaymentOpen(true)}>
                 <Plus size={14} />
                 Record
