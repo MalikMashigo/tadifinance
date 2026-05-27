@@ -5,7 +5,7 @@ import { StatusBadge } from '../../components/ui/Badge'
 import { PaymentForm } from './PaymentForm'
 import { useInvoice } from '../../hooks/useInvoices'
 import { deleteInvoice, fetchOrderItems } from '../../lib/invoices'
-import { generateInvoicePDF } from '../../lib/pdf'
+import { generateInvoicePDF, getInvoicePDFBlob } from '../../lib/pdf'
 import { formatCurrency, formatDate, VAT_RATE } from '../../utils/format'
 import { INVOICE_STATUS_MAP } from './InvoicesPage'
 import type { OrderItem } from '../../types/database'
@@ -75,7 +75,41 @@ export function InvoiceDetailPage() {
 
   async function handleSend() {
     if (!invoice) return
-    await generateInvoicePDF(invoice, orderItems, payments)
+
+    const blob = await getInvoicePDFBlob(invoice, orderItems, payments)
+    const filename = `${invoice.invoice_number}.pdf`
+    const file = new File([blob], filename, { type: 'application/pdf' })
+
+    // Try Web Share API first — attaches the PDF natively (mobile + modern desktop)
+    const canShare =
+      typeof navigator.share === 'function' &&
+      typeof navigator.canShare === 'function' &&
+      navigator.canShare({ files: [file] })
+
+    if (canShare) {
+      try {
+        await navigator.share({
+          files: [file],
+          title: `Invoice ${invoice.invoice_number} — TADI wa NASHE`,
+          text: `Hi ${invoice.clients.full_name},\n\nPlease find invoice ${invoice.invoice_number} attached.\n\nKind regards,\nTadiwanashe`,
+        })
+        return
+      } catch (e) {
+        if ((e as Error).name === 'AbortError') return  // user cancelled — do nothing
+        // other error: fall through to Gmail fallback
+      }
+    }
+
+    // Fallback: download PDF then open Gmail compose
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+
     const to      = encodeURIComponent(invoice.clients.email ?? '')
     const subject = encodeURIComponent(`Invoice ${invoice.invoice_number} — TADI wa NASHE`)
     const body    = encodeURIComponent(

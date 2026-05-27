@@ -441,6 +441,15 @@ export async function generateInvoicePDF(
   doc.save(`${invoice.invoice_number}.pdf`)
 }
 
+export async function getInvoicePDFBlob(
+  invoice: InvoiceWithClient,
+  items: OrderItem[],
+  payments: Payment[],
+): Promise<Blob> {
+  const doc = await buildInvoiceDoc(invoice, items, payments)
+  return new Blob([doc.output('arraybuffer')], { type: 'application/pdf' })
+}
+
 export async function getInvoicePDFBase64(
   invoice: InvoiceWithClient,
   items: OrderItem[],

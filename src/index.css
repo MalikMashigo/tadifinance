@@ -2700,21 +2700,23 @@ img { display: block; max-width: 100%; }
 
 .subsection-tab {
   padding: var(--space-2) var(--space-3);
-  border: none;
+  border: 1.5px solid transparent;
   background: none;
   border-radius: var(--radius-sm);
   font-size: 13px;
   font-weight: 500;
   color: var(--colour-ink-muted);
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 
 .subsection-tab:hover { background: var(--colour-surface-2); color: var(--colour-ink); }
 
 .subsection-tab--active {
-  background: var(--colour-ink);
-  color: var(--colour-canvas);
+  background: transparent;
+  color: #7B1C1C;
+  border-color: #7B1C1C;
+  font-weight: 600;
 }
 
 /* ─── Expense section banner ─────────────────────────────────────────────── */
