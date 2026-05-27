@@ -258,10 +258,10 @@ export function ReportsPage() {
                       <thead>
                         <tr>
                           <th>Date</th>
+                          <th>Subsection</th>
                           <th>Category</th>
                           <th>Description</th>
                           <th>Supplier</th>
-                          <th>Order</th>
                           <th className="num">Amount</th>
                         </tr>
                       </thead>
@@ -269,10 +269,10 @@ export function ReportsPage() {
                         {data.expenses.map((exp) => (
                           <tr key={exp.id}>
                             <td>{formatDate(exp.expense_date)}</td>
+                            <td>{exp.reference_name ?? exp.subsection}</td>
                             <td>{CATEGORY_LABELS[exp.category as ExpenseCategory] ?? exp.category}</td>
                             <td>{exp.description}</td>
                             <td>{exp.supplier ?? '—'}</td>
-                            <td className="mono">{exp.orders?.order_number ?? '—'}</td>
                             <td className="num">{formatCurrency(exp.amount)}</td>
                           </tr>
                         ))}

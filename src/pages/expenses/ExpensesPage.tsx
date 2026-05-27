@@ -1,69 +1,53 @@
-import { useState, useMemo } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useOutletContext } from 'react-router-dom'
-import { Plus, Search, Pencil, Trash2, ExternalLink } from 'lucide-react'
+import { Plus, Trash2 } from 'lucide-react'
 import { Header } from '../../components/layout/Header'
-import { StatusBadge } from '../../components/ui/Badge'
-import { ExpenseForm } from './ExpenseForm'
-import { useExpenses } from '../../hooks/useExpenses'
+import { ExpenseLogForm } from './ExpenseLogForm'
+import {
+  fetchExpenseLogs,
+  deleteExpenseLog,
+  SUBSECTION_LABELS,
+  SUBSECTIONS,
+  CATEGORY_LABELS,
+  CATEGORY_COLOURS,
+  type ExpenseLogWithItems,
+} from '../../lib/expenses'
 import { formatCurrency, formatDate } from '../../utils/format'
-import { CATEGORY_LABELS, CATEGORY_COLOURS, type ExpenseWithOrder } from '../../lib/expenses'
-import type { ExpenseCategory } from '../../types/database'
+import type { ExpenseSubsection } from '../../types/database'
 
 interface OutletCtx { openSidebar: () => void }
 
-const CATEGORY_FILTERS: { label: string; value: ExpenseCategory | 'all' }[] = [
-  { label: 'All', value: 'all' },
-  { label: 'Fabric', value: 'fabric' },
-  { label: 'Trims', value: 'trims' },
-  { label: 'Labour', value: 'labour' },
-  { label: 'Packaging', value: 'packaging' },
-  { label: 'Shipping', value: 'shipping' },
-  { label: 'Show / Event', value: 'show' },
-]
-
 export function ExpensesPage() {
   const { openSidebar } = useOutletContext<OutletCtx>()
-  const { expenses, loading, error, addExpense, editExpense, removeExpense } = useExpenses()
 
-  const [formOpen, setFormOpen] = useState(false)
-  const [editing, setEditing] = useState<ExpenseWithOrder | null>(null)
-  const [search, setSearch] = useState('')
-  const [catFilter, setCatFilter] = useState<ExpenseCategory | 'all'>('all')
+  const [subsection, setSubsection] = useState<ExpenseSubsection>('clients')
+  const [logs, setLogs]             = useState<ExpenseLogWithItems[]>([])
+  const [loading, setLoading]       = useState(true)
+  const [error, setError]           = useState<string | null>(null)
+  const [formOpen, setFormOpen]     = useState(false)
 
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase()
-    return expenses.filter((e) => {
-      const matchesSearch =
-        !q ||
-        e.description.toLowerCase().includes(q) ||
-        (e.supplier ?? '').toLowerCase().includes(q) ||
-        (e.orders?.order_number ?? '').toLowerCase().includes(q)
-      const matchesCat = catFilter === 'all' || e.category === catFilter
-      return matchesSearch && matchesCat
-    })
-  }, [expenses, search, catFilter])
+  const load = useCallback(() => {
+    setLoading(true)
+    setError(null)
+    fetchExpenseLogs(subsection)
+      .then(setLogs)
+      .catch((e) => setError((e as Error).message))
+      .finally(() => setLoading(false))
+  }, [subsection])
 
-  // Summary by category (from all expenses, not just filtered)
-  const totals = useMemo(() => {
-    const map = new Map<ExpenseCategory, number>()
-    for (const e of expenses) {
-      map.set(e.category, (map.get(e.category) ?? 0) + e.amount)
+  useEffect(() => { load() }, [load])
+
+  async function handleDelete(id: string) {
+    if (!confirm('Delete this expense log and all its items? This cannot be undone.')) return
+    try {
+      await deleteExpenseLog(id)
+      setLogs((prev) => prev.filter((l) => l.id !== id))
+    } catch (e) {
+      alert((e as Error).message)
     }
-    return map
-  }, [expenses])
-
-  const grandTotal = expenses.reduce((s, e) => s + e.amount, 0)
-  const filteredTotal = filtered.reduce((s, e) => s + e.amount, 0)
-
-  function handleEdit(e: React.MouseEvent, expense: ExpenseWithOrder) {
-    e.stopPropagation()
-    setEditing(expense)
   }
 
-  function handleDelete(e: React.MouseEvent, id: string, desc: string) {
-    e.stopPropagation()
-    if (confirm(`Delete "${desc}"? This cannot be undone.`)) removeExpense(id)
-  }
+  const sectionTotal = logs.reduce((s, l) => s + l.total_amount, 0)
 
   return (
     <div className="page">
@@ -79,160 +63,122 @@ export function ExpensesPage() {
       />
 
       <div className="page__content">
-        {/* Summary cards */}
-        {!loading && expenses.length > 0 && (
-          <div className="expense-summary">
-            <div className="expense-summary__total">
-              <span className="expense-summary__total-label">Total expenses</span>
-              <span className="expense-summary__total-value">{formatCurrency(grandTotal)}</span>
-            </div>
-            <div className="expense-summary__cats">
-              {(Object.keys(CATEGORY_LABELS) as ExpenseCategory[])
-                .filter((cat) => totals.has(cat))
-                .map((cat) => (
-                  <button
-                    key={cat}
-                    className={`expense-cat-chip ${catFilter === cat ? 'expense-cat-chip--active' : ''}`}
-                    onClick={() => setCatFilter(catFilter === cat ? 'all' : cat)}
-                  >
-                    <span className={`badge badge--${CATEGORY_COLOURS[cat]}`}>
-                      {CATEGORY_LABELS[cat]}
-                    </span>
-                    <span className="expense-cat-chip__amount">
-                      {formatCurrency(totals.get(cat) ?? 0)}
-                    </span>
-                  </button>
-                ))}
-            </div>
-          </div>
-        )}
-
-        {/* Toolbar */}
-        <div className="toolbar">
-          <div className="search-box">
-            <Search size={16} className="search-box__icon" />
-            <input
-              className="search-box__input"
-              placeholder="Search expenses…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-          <div className="filter-pills">
-            {CATEGORY_FILTERS.map((f) => (
-              <button
-                key={f.value}
-                className={`filter-pill ${catFilter === f.value ? 'filter-pill--active' : ''}`}
-                onClick={() => setCatFilter(f.value)}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
+        {/* Subsection tabs */}
+        <div className="subsection-tabs">
+          {SUBSECTIONS.map((s) => (
+            <button
+              key={s}
+              className={`subsection-tab ${subsection === s ? 'subsection-tab--active' : ''}`}
+              onClick={() => setSubsection(s)}
+            >
+              {SUBSECTION_LABELS[s]}
+            </button>
+          ))}
         </div>
 
-        {loading && <p className="state-msg">Loading expenses…</p>}
-        {error && <p className="state-msg state-msg--error">{error}</p>}
-
-        {!loading && !error && filtered.length === 0 && (
-          <div className="empty-state">
-            <p>{search || catFilter !== 'all'
-              ? 'No expenses match your search.'
-              : 'No expenses logged yet. Track fabric, labour and show costs here.'}</p>
+        {/* Section total */}
+        {!loading && logs.length > 0 && (
+          <div className="expense-section-banner">
+            <span className="expense-section-banner__label">
+              {SUBSECTION_LABELS[subsection]} — {logs.length} {logs.length === 1 ? 'log' : 'logs'}
+            </span>
+            <span className="expense-section-banner__total">{formatCurrency(sectionTotal)}</span>
           </div>
         )}
 
-        {!loading && !error && filtered.length > 0 && (
-          <>
-            <div className="expense-list">
-              {filtered.map((exp) => (
-                <div key={exp.id} className="expense-row">
-                  <div className="expense-row__left">
-                    <StatusBadge
-                      status={exp.category}
-                      map={Object.fromEntries(
-                        (Object.keys(CATEGORY_LABELS) as ExpenseCategory[]).map((k) => [
-                          k,
-                          { label: CATEGORY_LABELS[k], colour: CATEGORY_COLOURS[k] },
-                        ])
+        {loading && <p className="state-msg">Loading…</p>}
+        {error && <p className="state-msg state-msg--error">{error}</p>}
+
+        {!loading && !error && logs.length === 0 && (
+          <div className="empty-state">
+            <p>No expenses logged under {SUBSECTION_LABELS[subsection]} yet. Hit "Log expense" to start tracking costs here.</p>
+          </div>
+        )}
+
+        {!loading && !error && logs.length > 0 && (
+          <div className="expense-log-list">
+            {logs.map((log) => {
+              // Build category totals for this log
+              const catTotals = new Map<string, number>()
+              for (const item of log.expense_items) {
+                catTotals.set(item.category, (catTotals.get(item.category) ?? 0) + item.amount)
+              }
+
+              return (
+                <div key={log.id} className="expense-log-row">
+                  <div className="expense-log-row__top">
+                    <div className="expense-log-row__meta">
+                      <span className="expense-log-row__date">{formatDate(log.log_date)}</span>
+                      {log.reference_name && (
+                        <span className="expense-log-row__ref">{log.reference_name}</span>
                       )}
-                    />
-                    <div className="expense-row__body">
-                      <span className="expense-row__desc">{exp.description}</span>
-                      <div className="expense-row__meta">
-                        {exp.supplier && <span>{exp.supplier}</span>}
-                        {exp.orders && (
-                          <span className="expense-row__order">{exp.orders.order_number}</span>
-                        )}
-                        <span>{formatDate(exp.expense_date)}</span>
+                      <span className="expense-log-row__count">
+                        {log.expense_items.length} {log.expense_items.length === 1 ? 'item' : 'items'}
+                      </span>
+                    </div>
+                    <div className="expense-log-row__right">
+                      <span className="expense-log-row__total">{formatCurrency(log.total_amount)}</span>
+                      <button
+                        className="row-delete-btn"
+                        aria-label="Delete log"
+                        onClick={() => handleDelete(log.id)}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Category breakdown */}
+                  <div className="expense-log-row__cats">
+                    {Array.from(catTotals.entries()).map(([cat, total]) => (
+                      <div key={cat} className="expense-log-row__cat-item">
+                        <span className={`badge badge--${CATEGORY_COLOURS[cat as keyof typeof CATEGORY_COLOURS] ?? 'blue'}`}>
+                          {CATEGORY_LABELS[cat as keyof typeof CATEGORY_LABELS] ?? cat}
+                        </span>
+                        <span className="expense-log-row__cat-amount">{formatCurrency(total)}</span>
                       </div>
-                    </div>
+                    ))}
                   </div>
 
-                  <div className="expense-row__right">
-                    <span className="expense-row__amount">{formatCurrency(exp.amount)}</span>
-                    <div className="expense-row__actions">
-                      {exp.receipt_url && (
-                        <a
-                          href={exp.receipt_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="row-icon-btn"
-                          aria-label="View receipt"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <ExternalLink size={14} />
-                        </a>
-                      )}
-                      <button
-                        className="row-icon-btn"
-                        aria-label="Edit expense"
-                        onClick={(e) => handleEdit(e, exp)}
-                      >
-                        <Pencil size={14} />
-                      </button>
-                      <button
-                        className="row-icon-btn row-icon-btn--danger"
-                        aria-label="Delete expense"
-                        onClick={(e) => handleDelete(e, exp.id, exp.description)}
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                  {/* Item list */}
+                  {log.expense_items.length > 0 && (
+                    <div className="expense-log-row__items">
+                      {log.expense_items.map((item) => (
+                        <div key={item.id} className="expense-log-item">
+                          <span className="expense-log-item__desc">{item.description}</span>
+                          {item.unit_quantity && item.unit_price && (
+                            <span className="expense-log-item__unit">
+                              {item.unit_quantity}
+                              {item.unit_type === 'metre' ? 'm' : item.unit_type === 'hour' ? 'h' : '×'}
+                              {' @ '}{formatCurrency(item.unit_price)}
+                              {item.unit_type === 'metre' ? '/m' : item.unit_type === 'hour' ? '/h' : ''}
+                            </span>
+                          )}
+                          {item.supplier && (
+                            <span className="expense-log-item__supplier">{item.supplier}</span>
+                          )}
+                          <span className="expense-log-item__amount">{formatCurrency(item.amount)}</span>
+                        </div>
+                      ))}
                     </div>
-                  </div>
+                  )}
+
+                  {log.notes && (
+                    <p className="expense-log-row__notes">{log.notes}</p>
+                  )}
                 </div>
-              ))}
-            </div>
-
-            <div className="expense-list__footer">
-              <span className="list-count">
-                {filtered.length} {filtered.length === 1 ? 'expense' : 'expenses'}
-                {catFilter !== 'all' || search ? ' shown' : ' total'}
-              </span>
-              {(catFilter !== 'all' || search) && (
-                <span className="expense-list__subtotal">
-                  Subtotal: <strong>{formatCurrency(filteredTotal)}</strong>
-                </span>
-              )}
-            </div>
-          </>
+              )
+            })}
+          </div>
         )}
       </div>
 
-      <ExpenseForm
+      <ExpenseLogForm
         open={formOpen}
+        subsection={subsection}
         onClose={() => setFormOpen(false)}
-        onSubmit={addExpense}
+        onSaved={load}
       />
-
-      {editing && (
-        <ExpenseForm
-          open={!!editing}
-          onClose={() => setEditing(null)}
-          onSubmit={(data) => editExpense(editing.id, data)}
-          initial={editing}
-        />
-      )}
     </div>
   )
 }

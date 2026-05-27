@@ -45,7 +45,7 @@ function monthBounds() {
 export async function fetchDashboardData(): Promise<DashboardData> {
   const { start, end } = monthBounds()
 
-  const [paymentsRes, clientsRes, invoicesRes, ordersRes, expensesRes] = await Promise.all([
+  const [paymentsRes, clientsRes, invoicesRes, ordersRes, logsRes] = await Promise.all([
     supabase
       .from('payments')
       .select('amount')
@@ -68,11 +68,12 @@ export async function fetchDashboardData(): Promise<DashboardData> {
       .order('created_at', { ascending: false })
       .limit(5),
 
+    // Fetch expense log IDs for this month (new system)
     supabase
-      .from('expenses')
-      .select('category, amount')
-      .gte('expense_date', start)
-      .lte('expense_date', end),
+      .from('expense_logs')
+      .select('id')
+      .gte('log_date', start)
+      .lte('log_date', end),
   ])
 
   const revenueThisMonth = (paymentsRes.data ?? []).reduce(
@@ -86,12 +87,22 @@ export async function fetchDashboardData(): Promise<DashboardData> {
     return due < new Date() && i.status !== 'paid'
   }).length
 
+  // Fetch expense items for this month's logs
   const expensesByCategory = new Map<ExpenseCategory, number>()
   let totalExpensesThisMonth = 0
-  for (const e of expensesRes.data ?? []) {
-    const row = e as { category: ExpenseCategory; amount: number }
-    expensesByCategory.set(row.category, (expensesByCategory.get(row.category) ?? 0) + row.amount)
-    totalExpensesThisMonth += row.amount
+
+  const logIds = (logsRes.data ?? []).map((l: { id: string }) => l.id)
+  if (logIds.length > 0) {
+    const { data: itemsData } = await supabase
+      .from('expense_items')
+      .select('category, amount')
+      .in('log_id', logIds)
+
+    for (const e of itemsData ?? []) {
+      const row = e as { category: ExpenseCategory; amount: number }
+      expensesByCategory.set(row.category, (expensesByCategory.get(row.category) ?? 0) + row.amount)
+      totalExpensesThisMonth += row.amount
+    }
   }
 
   return {

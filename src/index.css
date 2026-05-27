@@ -2687,6 +2687,311 @@ img { display: block; max-width: 100%; }
   flex-shrink: 0;
 }
 
+/* ─── Subsection tabs (Expenses) ────────────────────────────────────────── */
+
+.subsection-tabs {
+  display: flex;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-4);
+  border-bottom: 1px solid var(--colour-border);
+  padding-bottom: var(--space-3);
+}
+
+.subsection-tab {
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  background: none;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--colour-ink-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.subsection-tab:hover { background: var(--colour-surface-2); color: var(--colour-ink); }
+
+.subsection-tab--active {
+  background: var(--colour-ink);
+  color: var(--colour-canvas);
+}
+
+/* ─── Expense section banner ─────────────────────────────────────────────── */
+
+.expense-section-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--colour-surface-2);
+  border-radius: var(--radius);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.expense-section-banner__label { font-size: 13px; color: var(--colour-ink-muted); }
+.expense-section-banner__total { font-size: 16px; font-weight: 700; color: var(--colour-ink); }
+
+/* ─── Expense log list ───────────────────────────────────────────────────── */
+
+.expense-log-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.expense-log-row {
+  background: var(--colour-canvas);
+  border: 1px solid var(--colour-border);
+  border-radius: var(--radius);
+  padding: var(--space-3) var(--space-4);
+}
+
+.expense-log-row__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.expense-log-row__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.expense-log-row__date { font-size: 13px; font-weight: 600; color: var(--colour-ink); }
+.expense-log-row__ref  { font-size: 13px; color: var(--colour-ink-muted); }
+.expense-log-row__count { font-size: 12px; color: var(--colour-ink-muted); }
+
+.expense-log-row__right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.expense-log-row__total { font-size: 15px; font-weight: 700; color: var(--colour-ink); }
+
+.expense-log-row__cats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.expense-log-row__cat-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.expense-log-row__cat-amount { font-size: 12px; color: var(--colour-ink-muted); }
+
+.expense-log-row__items {
+  border-top: 1px solid var(--colour-border);
+  padding-top: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.expense-log-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: 13px;
+  flex-wrap: wrap;
+}
+
+.expense-log-item__desc    { flex: 1 1 auto; font-weight: 500; color: var(--colour-ink); }
+.expense-log-item__unit    { color: var(--colour-ink-muted); font-size: 12px; }
+.expense-log-item__supplier { color: var(--colour-ink-muted); font-size: 12px; }
+.expense-log-item__amount  { font-weight: 600; color: var(--colour-ink); margin-left: auto; }
+
+.expense-log-row__notes {
+  margin-top: var(--space-2);
+  font-size: 13px;
+  color: var(--colour-ink-muted);
+  font-style: italic;
+}
+
+/* ─── Expense log form ───────────────────────────────────────────────────── */
+
+.expense-items-section {
+  border: 1px solid var(--colour-border);
+  border-radius: var(--radius);
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.expense-items-section__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.expense-items-section__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--colour-ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.expense-item-block {
+  background: var(--colour-surface-2);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.expense-item-block__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.expense-item-block__num {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--colour-ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.expense-item-block__remove {
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--colour-ink-muted);
+  padding: 2px;
+  border-radius: 3px;
+  display: flex;
+}
+
+.expense-item-block__remove:hover { color: var(--colour-red); background: var(--colour-red-bg); }
+
+.form__grid--3 { grid-template-columns: 1fr 1fr 1fr; }
+
+.expense-line-total {
+  height: var(--input-h, 38px);
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--colour-ink);
+  padding: 0 var(--space-2);
+}
+
+.expense-log-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  background: var(--colour-surface-2);
+  border-radius: var(--radius-sm);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--colour-ink);
+}
+
+/* ─── Invoice FX currency converter ─────────────────────────────────────── */
+
+.fx-converter {
+  margin-top: var(--space-4);
+  border-top: 1px solid var(--colour-border);
+  padding-top: var(--space-4);
+}
+
+.fx-converter__toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.fx-converter__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--colour-ink-muted);
+  white-space: nowrap;
+}
+
+.fx-converter__select {
+  font-size: 13px;
+  border: 1px solid var(--colour-border);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  background: var(--colour-canvas);
+  color: var(--colour-ink);
+  cursor: pointer;
+}
+
+.fx-converter__panel {
+  margin-top: var(--space-3);
+  background: var(--colour-surface-2);
+  border-radius: var(--radius);
+  padding: var(--space-3) var(--space-4);
+}
+
+.fx-converter__status {
+  font-size: 13px;
+  color: var(--colour-ink-muted);
+  margin: 0;
+}
+
+.fx-converter__status--error { color: var(--colour-red); }
+
+.fx-converter__rate {
+  font-size: 12px;
+  color: var(--colour-ink-muted);
+  margin: 0 0 var(--space-3);
+}
+
+.fx-totals { display: flex; flex-direction: column; gap: 4px; }
+
+.fx-totals__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  color: var(--colour-ink-muted);
+  padding: 2px 0;
+}
+
+.fx-totals__row--total {
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--colour-ink);
+  border-top: 1px solid var(--colour-border);
+  padding-top: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+/* ─── btn--ghost / btn--icon ─────────────────────────────────────────────── */
+
+.btn--ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--colour-ink-muted);
+}
+.btn--ghost:hover { background: var(--colour-surface-2); color: var(--colour-ink); }
+
+.btn--icon {
+  padding: 0 var(--space-2);
+  min-width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* ─── Utility ────────────────────────────────────────────────────────────── */
 
 .sr-only {

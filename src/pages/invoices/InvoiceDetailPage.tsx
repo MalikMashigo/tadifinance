@@ -10,6 +10,9 @@ import { formatCurrency, formatDate, VAT_RATE } from '../../utils/format'
 import { INVOICE_STATUS_MAP } from './InvoicesPage'
 import type { OrderItem } from '../../types/database'
 
+type FxCurrency = 'USD' | 'GBP' | 'EUR'
+const FX_SYMBOLS: Record<FxCurrency, string> = { USD: '$', GBP: '£', EUR: '€' }
+
 export function InvoiceDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -19,11 +22,38 @@ export function InvoiceDetailPage() {
   const [paymentOpen, setPaymentOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
+  // Currency conversion
+  const [fxCurrency, setFxCurrency] = useState<FxCurrency | 'ZAR'>('ZAR')
+  const [fxRate, setFxRate] = useState<number | null>(null)
+  const [fxLoading, setFxLoading] = useState(false)
+  const [fxError, setFxError] = useState<string | null>(null)
+
   useEffect(() => {
     if (invoice?.order_id) {
       fetchOrderItems(invoice.order_id).then(setOrderItems).catch(() => {})
     }
   }, [invoice?.order_id])
+
+  useEffect(() => {
+    if (fxCurrency === 'ZAR') { setFxRate(null); setFxError(null); return }
+    setFxLoading(true)
+    setFxError(null)
+    fetch(`https://api.frankfurter.app/latest?from=ZAR&to=${fxCurrency}`)
+      .then((r) => r.json())
+      .then((data) => {
+        const rate = data?.rates?.[fxCurrency]
+        if (typeof rate === 'number') setFxRate(rate)
+        else setFxError('Could not load rate')
+      })
+      .catch(() => setFxError('Could not load rate'))
+      .finally(() => setFxLoading(false))
+  }, [fxCurrency])
+
+  function fxFormat(zarAmount: number): string {
+    if (!fxRate || fxCurrency === 'ZAR') return formatCurrency(zarAmount)
+    const symbol = FX_SYMBOLS[fxCurrency]
+    return `${symbol}${(zarAmount * fxRate).toFixed(2)}`
+  }
 
   async function handleDelete() {
     if (!invoice) return
@@ -165,6 +195,7 @@ export function InvoiceDetailPage() {
             </div>
           )}
 
+          {/* ZAR Totals */}
           <div className="order-totals">
             <div className="order-totals__row">
               <span>Subtotal</span><span>{formatCurrency(invoice.subtotal)}</span>
@@ -185,6 +216,63 @@ export function InvoiceDetailPage() {
                   <span>Balance due</span><span>{formatCurrency(invoice.balance_due)}</span>
                 </div>
               </>
+            )}
+          </div>
+
+          {/* Currency converter */}
+          <div className="fx-converter">
+            <div className="fx-converter__toggle">
+              <span className="fx-converter__label">View in</span>
+              <select
+                className="fx-converter__select"
+                value={fxCurrency}
+                onChange={(e) => setFxCurrency(e.target.value as FxCurrency | 'ZAR')}
+              >
+                <option value="ZAR">ZAR (South African Rand)</option>
+                <option value="USD">USD (US Dollar)</option>
+                <option value="GBP">GBP (British Pound)</option>
+                <option value="EUR">EUR (Euro)</option>
+              </select>
+            </div>
+
+            {fxCurrency !== 'ZAR' && (
+              <div className="fx-converter__panel">
+                {fxLoading && <p className="fx-converter__status">Fetching rate…</p>}
+                {fxError && <p className="fx-converter__status fx-converter__status--error">{fxError}</p>}
+                {fxRate && !fxLoading && (
+                  <>
+                    <p className="fx-converter__rate">
+                      1 ZAR = {FX_SYMBOLS[fxCurrency]}{fxRate.toFixed(4)} {fxCurrency}
+                    </p>
+                    <div className="fx-totals">
+                      <div className="fx-totals__row">
+                        <span>Subtotal</span>
+                        <span>{fxFormat(invoice.subtotal)}</span>
+                      </div>
+                      <div className="fx-totals__row">
+                        <span>VAT</span>
+                        <span>{fxFormat(invoice.vat_amount)}</span>
+                      </div>
+                      <div className="fx-totals__row fx-totals__row--total">
+                        <span>Total</span>
+                        <span>{fxFormat(invoice.total_amount)}</span>
+                      </div>
+                      {invoice.amount_paid > 0 && (
+                        <>
+                          <div className="fx-totals__row">
+                            <span>Paid</span>
+                            <span>− {fxFormat(invoice.amount_paid)}</span>
+                          </div>
+                          <div className="fx-totals__row fx-totals__row--total">
+                            <span>Balance due</span>
+                            <span>{fxFormat(invoice.balance_due)}</span>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
             )}
           </div>
         </section>
@@ -248,7 +336,6 @@ export function InvoiceDetailPage() {
         onSubmit={addPayment}
         balanceDue={invoice.balance_due}
       />
-
     </div>
   )
 }

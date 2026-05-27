@@ -18,13 +18,23 @@ export type InvoiceStatus =
 
 export type PaymentMethod = 'EFT' | 'cash' | 'card' | 'PayShap'
 
+export type ExpenseSubsection =
+  | 'clients'
+  | 'collections'
+  | 'shoots'
+  | 'studio'
+  | 'cmt'
+  | 'passion_projects'
+
 export type ExpenseCategory =
   | 'fabric'
   | 'trims'
   | 'labour'
+  | 'accessories'
   | 'packaging'
   | 'shipping'
-  | 'show'
+
+export type ExpenseUnitType = 'unit' | 'metre' | 'hour'
 
 export interface Client {
   id: string
@@ -129,6 +139,30 @@ export interface Expense {
   amount: number
   expense_date: string
   receipt_url: string | null
+  created_at: string
+}
+
+export interface ExpenseLog {
+  id: string
+  subsection: ExpenseSubsection
+  log_date: string
+  reference_name: string | null
+  notes: string | null
+  total_amount: number
+  created_at: string
+}
+
+export interface ExpenseItem {
+  id: string
+  log_id: string
+  category: ExpenseCategory
+  description: string
+  unit_type: ExpenseUnitType
+  unit_quantity: number | null
+  unit_price: number | null
+  amount: number
+  supplier: string | null
+  notes: string | null
   created_at: string
 }
 
