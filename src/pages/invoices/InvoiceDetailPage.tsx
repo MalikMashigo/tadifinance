@@ -57,8 +57,8 @@ export function InvoiceDetailPage() {
   if (loading) return <div className="page"><p className="state-msg">Loading…</p></div>
   if (error || !invoice) return <div className="page"><p className="state-msg state-msg--error">{error ?? 'Invoice not found.'}</p></div>
 
-  const isPaid      = invoice.status === 'paid'
-  const hasBalance  = invoice.balance_due > 0
+  const isPaid     = invoice.status === 'paid'
+  const hasBalance = !isPaid || invoice.total_amount > invoice.amount_paid
 
   return (
     <div className="page">
