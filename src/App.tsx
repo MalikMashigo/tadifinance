@@ -6,6 +6,8 @@ import { ClientsPage } from './pages/clients/ClientsPage'
 import { ClientDetailPage } from './pages/clients/ClientDetailPage'
 import { OrdersPage } from './pages/orders/OrdersPage'
 import { OrderDetailPage } from './pages/orders/OrderDetailPage'
+import { QuotesPage } from './pages/quotes/QuotesPage'
+import { QuoteDetailPage } from './pages/quotes/QuoteDetailPage'
 import { InvoicesPage } from './pages/invoices/InvoicesPage'
 import { InvoiceDetailPage } from './pages/invoices/InvoiceDetailPage'
 import { PaymentsPage } from './pages/payments/PaymentsPage'
@@ -23,6 +25,8 @@ export default function App() {
           <Route path="clients/:id" element={<ClientDetailPage />} />
           <Route path="orders" element={<OrdersPage />} />
           <Route path="orders/:id" element={<OrderDetailPage />} />
+          <Route path="quotes" element={<QuotesPage />} />
+          <Route path="quotes/:id" element={<QuoteDetailPage />} />
           <Route path="invoices" element={<InvoicesPage />} />
           <Route path="invoices/:id" element={<InvoiceDetailPage />} />
           <Route path="payments" element={<PaymentsPage />} />

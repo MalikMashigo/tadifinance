@@ -1,31 +1,34 @@
 import { useState, useMemo } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
-import { Plus, Upload, Search, ChevronRight, Trash2 } from 'lucide-react'
+import { Plus, Upload, Search, ChevronRight, Trash2, Settings } from 'lucide-react'
 import { Header } from '../../components/layout/Header'
 import { StatusBadge } from '../../components/ui/Badge'
+import { Modal } from '../../components/ui/Modal'
+import { Field, Input } from '../../components/ui/Field'
 import { InvoiceForm } from './InvoiceForm'
 import { InvoiceUploadModal } from './InvoiceUploadModal'
 import { useInvoices } from '../../hooks/useInvoices'
+import { getBankingDetails, saveBankingDetails, type BankingDetails } from '../../lib/settings'
 import { formatCurrency, formatDate } from '../../utils/format'
 import type { InvoiceStatus } from '../../types/database'
 
 interface OutletCtx { openSidebar: () => void }
 
 const STATUS_FILTERS: { label: string; value: InvoiceStatus | 'all' }[] = [
-  { label: 'All', value: 'all' },
-  { label: 'Draft', value: 'draft' },
-  { label: 'Sent', value: 'sent' },
-  { label: 'Part paid', value: 'partially_paid' },
-  { label: 'Paid', value: 'paid' },
-  { label: 'Overdue', value: 'overdue' },
+  { label: 'All',        value: 'all'            },
+  { label: 'Draft',      value: 'draft'          },
+  { label: 'Sent',       value: 'sent'           },
+  { label: 'Deposit',    value: 'partially_paid' },
+  { label: 'Fully Paid', value: 'paid'           },
+  { label: 'Overdue',    value: 'overdue'        },
 ]
 
 export const INVOICE_STATUS_MAP: Record<InvoiceStatus, { label: string; colour: string }> = {
-  draft:          { label: 'Draft',     colour: 'blue' },
-  sent:           { label: 'Sent',      colour: 'amber' },
-  partially_paid: { label: 'Part paid', colour: 'accent' },
-  paid:           { label: 'Paid',      colour: 'green' },
-  overdue:        { label: 'Overdue',   colour: 'red' },
+  draft:          { label: 'Draft',      colour: 'blue'   },
+  sent:           { label: 'Sent',       colour: 'amber'  },
+  partially_paid: { label: 'Deposit',    colour: 'accent' },
+  paid:           { label: 'Fully Paid', colour: 'green'  },
+  overdue:        { label: 'Overdue',    colour: 'red'    },
 }
 
 export function InvoicesPage() {
@@ -35,6 +38,9 @@ export function InvoicesPage() {
 
   const [formOpen, setFormOpen] = useState(false)
   const [uploadOpen, setUploadOpen] = useState(false)
+  const [bankingOpen, setBankingOpen] = useState(false)
+  const [banking, setBanking] = useState<BankingDetails>(getBankingDetails)
+  const [bankingSaving, setBankingSaving] = useState(false)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<InvoiceStatus | 'all'>('all')
 
@@ -60,6 +66,14 @@ export function InvoicesPage() {
     if (confirm(`Delete invoice ${number}? This cannot be undone.`)) removeInvoice(id)
   }
 
+  function handleBankingSave(e: { preventDefault(): void }) {
+    e.preventDefault()
+    setBankingSaving(true)
+    saveBankingDetails(banking)
+    setBankingSaving(false)
+    setBankingOpen(false)
+  }
+
   return (
     <div className="page">
       <Header
@@ -67,6 +81,9 @@ export function InvoicesPage() {
         onMenuClick={openSidebar}
         actions={
           <>
+            <button className="btn btn--ghost btn--icon" onClick={() => setBankingOpen(true)} title="Banking details">
+              <Settings size={16} />
+            </button>
             <button className="btn btn--secondary" onClick={() => setUploadOpen(true)}>
               <Upload size={16} />
               Import
@@ -178,6 +195,49 @@ export function InvoicesPage() {
         onClose={() => setUploadOpen(false)}
         onImported={() => { setUploadOpen(false); reload() }}
       />
+
+      {/* Banking details settings modal */}
+      <Modal open={bankingOpen} onClose={() => setBankingOpen(false)} title="Banking details" width="sm">
+        <form onSubmit={handleBankingSave} className="form">
+          <p className="form__hint" style={{ marginBottom: '1rem', fontSize: '0.8rem', color: 'var(--muted)' }}>
+            These details appear on every invoice PDF.
+          </p>
+          <Field label="Bank name">
+            <Input
+              value={banking.bankName}
+              onChange={(e) => setBanking((b) => ({ ...b, bankName: e.target.value }))}
+              placeholder="e.g. First National Bank"
+            />
+          </Field>
+          <Field label="Account name">
+            <Input
+              value={banking.accountName}
+              onChange={(e) => setBanking((b) => ({ ...b, accountName: e.target.value }))}
+              placeholder="TADI wa NASHE"
+            />
+          </Field>
+          <Field label="Account number">
+            <Input
+              value={banking.accountNumber}
+              onChange={(e) => setBanking((b) => ({ ...b, accountNumber: e.target.value }))}
+              placeholder="1234567890"
+            />
+          </Field>
+          <Field label="Branch code">
+            <Input
+              value={banking.branchCode}
+              onChange={(e) => setBanking((b) => ({ ...b, branchCode: e.target.value }))}
+              placeholder="250655"
+            />
+          </Field>
+          <div className="form__actions">
+            <button type="button" className="btn btn--secondary" onClick={() => setBankingOpen(false)}>Cancel</button>
+            <button type="submit" className="btn btn--primary" disabled={bankingSaving}>
+              {bankingSaving ? 'Saving…' : 'Save details'}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   )
 }

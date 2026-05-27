@@ -10,10 +10,11 @@ import type { ClientType } from '../../types/database'
 interface OutletCtx { openSidebar: () => void }
 
 const TYPE_FILTERS: { label: string; value: ClientType | 'all' }[] = [
-  { label: 'All',     value: 'all'     },
-  { label: 'Retail',  value: 'retail'  },
-  { label: 'Stylist', value: 'stylist' },
-  { label: 'Custom',  value: 'custom'  },
+  { label: 'All',          value: 'all'          },
+  { label: 'Retail',       value: 'retail'       },
+  { label: 'Stylist',      value: 'stylist'      },
+  { label: 'Custom',       value: 'custom'       },
+  { label: 'Made to Order', value: 'made_to_order' },
 ]
 
 export function ClientsPage() {

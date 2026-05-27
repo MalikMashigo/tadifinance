@@ -1,9 +1,10 @@
 import type { ClientType } from '../../types/database'
 
 const typeConfig: Record<ClientType, { label: string; colour: string }> = {
-  retail:  { label: 'Retail',  colour: 'blue' },
-  stylist: { label: 'Stylist', colour: 'accent' },
-  custom:  { label: 'Custom',  colour: 'amber' },
+  retail:        { label: 'Retail',        colour: 'blue'  },
+  stylist:       { label: 'Stylist',       colour: 'accent' },
+  custom:        { label: 'Custom',        colour: 'amber' },
+  made_to_order: { label: 'Made to Order', colour: 'green' },
 }
 
 interface ClientTypeBadgeProps {

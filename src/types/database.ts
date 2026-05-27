@@ -1,4 +1,5 @@
-export type ClientType  = 'retail' | 'stylist' | 'custom'
+export type ClientType  = 'retail' | 'stylist' | 'custom' | 'made_to_order'
+export type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'declined'
 export type SizeSystem  = 'S-XXL' | 'EU' | 'US'
 export type OrderType   = 'bespoke' | 'outsourcing' | 'alteration'
 
@@ -128,6 +129,31 @@ export interface Expense {
   amount: number
   expense_date: string
   receipt_url: string | null
+  created_at: string
+}
+
+export interface Quote {
+  id: string
+  client_id: string
+  quote_number: string
+  status: QuoteStatus
+  issue_date: string
+  subtotal: number
+  vat_amount: number
+  total_amount: number
+  notes: string | null
+  sent_at: string | null
+  created_at: string
+}
+
+export interface QuoteItem {
+  id: string
+  quote_id: string
+  description: string
+  quantity: number
+  unit_price: number
+  line_total: number
+  notes: string | null
   created_at: string
 }
 

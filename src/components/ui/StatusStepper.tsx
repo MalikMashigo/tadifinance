@@ -4,8 +4,8 @@ import type { OrderStatus } from '../../types/database'
 const ORDER_STEPS: { status: OrderStatus; label: string }[] = [
   { status: 'consult',  label: 'Consult'  },
   { status: 'service',  label: 'Service'  },
-  { status: 'complete', label: 'Complete' },
   { status: 'delivery', label: 'Delivery' },
+  { status: 'complete', label: 'Complete' },
 ]
 
 interface StatusStepperProps {

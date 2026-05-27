@@ -14,8 +14,8 @@ interface OutletCtx { openSidebar: () => void }
 const ORDER_STATUS_MAP: Record<OrderStatus, { label: string; colour: string }> = {
   consult:  { label: 'Consult',  colour: 'blue'  },
   service:  { label: 'Service',  colour: 'amber' },
+  delivery: { label: 'Delivery', colour: 'accent' },
   complete: { label: 'Complete', colour: 'green' },
-  delivery: { label: 'Delivery', colour: 'green' },
 }
 
 function isOverdue(dueDateStr: string) {

@@ -113,6 +113,7 @@ export function ClientForm({ open, onClose, onSubmit, initial }: ClientFormProps
               <option value="retail">Retail</option>
               <option value="stylist">Stylist</option>
               <option value="custom">Custom</option>
+              <option value="made_to_order">Made to Order</option>
             </Select>
           </Field>
 

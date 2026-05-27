@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
 import * as XLSX from 'xlsx'
-import type { ExpenseCategory, InvoiceStatus } from '../types/database'
+import type { ExpenseCategory, InvoiceStatus, OrderStatus, OrderType } from '../types/database'
 import { CATEGORY_LABELS } from './expenses'
 
 export interface ReportInvoice {
@@ -37,6 +37,18 @@ export interface ReportPayment {
   invoices: { invoice_number: string; clients: { full_name: string } } | null
 }
 
+export interface ReportOrder {
+  id: string
+  order_number: string
+  created_at: string
+  due_date: string | null
+  status: OrderStatus
+  order_type: OrderType
+  collection_name: string | null
+  total_amount: number
+  clients: { full_name: string }
+}
+
 export interface ReportSummary {
   totalInvoiced: number
   totalPaid: number
@@ -49,11 +61,25 @@ export interface ReportData {
   invoices: ReportInvoice[]
   expenses: ReportExpense[]
   payments: ReportPayment[]
+  orders: ReportOrder[]
   summary: ReportSummary
 }
 
+const ORDER_TYPE_LABELS: Record<OrderType, string> = {
+  bespoke:     'Bespoke',
+  outsourcing: 'Outsourcing',
+  alteration:  'Alteration',
+}
+
+const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
+  consult:  'Consult',
+  service:  'Service',
+  delivery: 'Delivery',
+  complete: 'Complete',
+}
+
 export async function fetchReportData(from: string, to: string): Promise<ReportData> {
-  const [invoicesRes, expensesRes, paymentsRes] = await Promise.all([
+  const [invoicesRes, expensesRes, paymentsRes, ordersRes] = await Promise.all([
     supabase
       .from('invoices')
       .select('id, invoice_number, issue_date, due_date, status, subtotal, vat_amount, total_amount, amount_paid, balance_due, clients(full_name, email)')
@@ -74,11 +100,19 @@ export async function fetchReportData(from: string, to: string): Promise<ReportD
       .gte('payment_date', from)
       .lte('payment_date', to)
       .order('payment_date', { ascending: true }),
+
+    supabase
+      .from('orders')
+      .select('id, order_number, created_at, due_date, status, order_type, collection_name, total_amount, clients(full_name)')
+      .gte('created_at', from)
+      .lte('created_at', to)
+      .order('created_at', { ascending: true }),
   ])
 
   const invoices = (invoicesRes.data ?? []) as unknown as ReportInvoice[]
   const expenses = (expensesRes.data ?? []) as unknown as ReportExpense[]
   const payments = (paymentsRes.data ?? []) as unknown as ReportPayment[]
+  const orders   = (ordersRes.data   ?? []) as unknown as ReportOrder[]
 
   const totalInvoiced = invoices.reduce((s, i) => s + i.total_amount, 0)
   const totalPaid = payments.reduce((s, p) => s + p.amount, 0)
@@ -92,6 +126,7 @@ export async function fetchReportData(from: string, to: string): Promise<ReportD
     invoices,
     expenses,
     payments,
+    orders,
     summary: { totalInvoiced, totalPaid, outstanding, totalExpenses, grossProfit },
   }
 }
@@ -120,6 +155,23 @@ export function exportToExcel(data: ReportData, periodLabel: string) {
   const summarySheet = XLSX.utils.aoa_to_sheet(summaryRows)
   summarySheet['!cols'] = [{ wch: 36 }, { wch: 18 }]
   XLSX.utils.book_append_sheet(wb, summarySheet, 'Summary')
+
+  // ── Orders sheet ──
+  const orderHeader = ['Order #', 'Client', 'Type', 'Status', 'Collection / Look', 'Due Date', 'Total (R)']
+  const orderRows = data.orders.map((o) => [
+    o.order_number,
+    o.clients.full_name,
+    ORDER_TYPE_LABELS[o.order_type] ?? o.order_type,
+    ORDER_STATUS_LABELS[o.status]   ?? o.status,
+    o.collection_name ?? '',
+    o.due_date ?? '',
+    o.total_amount,
+  ])
+  const orderSheet = XLSX.utils.aoa_to_sheet([orderHeader, ...orderRows])
+  orderSheet['!cols'] = [
+    { wch: 12 }, { wch: 24 }, { wch: 14 }, { wch: 12 }, { wch: 22 }, { wch: 12 }, { wch: 12 },
+  ]
+  XLSX.utils.book_append_sheet(wb, orderSheet, 'Orders')
 
   // ── Invoices sheet ──
   const invoiceHeader = ['Invoice #', 'Client', 'Issue Date', 'Due Date', 'Status', 'Subtotal (R)', 'VAT (R)', 'Total (R)', 'Paid (R)', 'Balance (R)']

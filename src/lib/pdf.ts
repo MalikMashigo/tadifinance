@@ -1,7 +1,9 @@
 import jsPDF from 'jspdf'
 import tadiLogoUrl from '../assets/tadi.jpg'
 import type { InvoiceWithClient } from './invoices'
-import type { OrderItem, Payment } from '../types/database'
+import type { OrderItem, Payment, QuoteItem } from '../types/database'
+import type { QuoteWithClient } from './quotes'
+import { getBankingDetails } from './settings'
 import { formatCurrency, formatDate, VAT_RATE } from '../utils/format'
 
 type RGB = [number, number, number]
@@ -12,7 +14,7 @@ const BORDER: RGB = [229, 227, 222]
 const GREEN: RGB  = [74, 124, 89]
 
 const W      = 210
-const M      = 14   // margin
+const M      = 14
 const RIGHT  = W - M  // 196
 
 function hr(doc: jsPDF, y: number, colour: RGB = BORDER) {
@@ -40,14 +42,55 @@ function loadLogo(): Promise<string> {
   })
 }
 
-// Column positions (content width = 182mm)
-// Description: 14–120 (106mm) | Qty: right-edge 138 | Price: right-edge 170 | Total: right-edge 196
 const QTY_EDGE   = 138
 const PRICE_EDGE = 170
-const TOTAL_EDGE = RIGHT  // 196
+const TOTAL_EDGE = RIGHT
+const TOTAL_LABEL_X = M + 95
 
-// Totals label column
-const TOTAL_LABEL_X = M + 95  // 109 — labels left-aligned here
+function addDocFooter(doc: jsPDF, y: number, refNumber: string): void {
+  const banking = getBankingDetails()
+  const MID = W / 2 + 8  // ~113mm — divides banking (left) from contact (right)
+
+  y = Math.max(y, 210)
+  hr(doc, y, ACCENT)
+  y += 6
+
+  // Banking details — left column
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(7)
+  doc.setTextColor(...ACCENT)
+  doc.text('BANKING DETAILS', M, y)
+
+  // Contact — right column
+  doc.text('CONTACT', MID, y)
+
+  y += 5
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(8)
+  doc.setTextColor(...MUTED)
+
+  const bankLines: string[] = []
+  if (banking.bankName)      bankLines.push(`Bank: ${banking.bankName}`)
+  if (banking.accountName)   bankLines.push(`Account name: ${banking.accountName}`)
+  if (banking.accountNumber) bankLines.push(`Account no: ${banking.accountNumber}`)
+  if (banking.branchCode)    bankLines.push(`Branch code: ${banking.branchCode}`)
+
+  if (bankLines.length === 0) {
+    doc.text('Not configured — add via Invoices → settings', M, y)
+  } else {
+    bankLines.forEach((line, i) => {
+      doc.text(line, M, y + i * 5)
+    })
+  }
+
+  doc.text('+27 73 928 0572', MID, y)
+  doc.text('tadiwanashekaparipari@outlook.com', MID, y + 5)
+
+  y += Math.max(bankLines.length * 5, 10) + 6
+
+  doc.setFontSize(7.5)
+  doc.text(`Please use ${refNumber} as your payment reference.`, M, y)
+}
 
 async function buildInvoiceDoc(
   invoice: InvoiceWithClient,
@@ -57,7 +100,6 @@ async function buildInvoiceDoc(
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
   let y = M
 
-  // ── Header: logo left, INVOICE right ─────────────────────────────────────
   const logoData = await loadLogo()
   const LOGO = 26
 
@@ -84,8 +126,7 @@ async function buildInvoiceDoc(
   hr(doc, y, ACCENT)
   y += 8
 
-  // ── Bill To (left) + Meta (right) ─────────────────────────────────────────
-  const META_X = M + 110  // meta labels start here
+  const META_X = M + 110
 
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(7)
@@ -125,7 +166,6 @@ async function buildInvoiceDoc(
   hr(doc, y)
   y += 8
 
-  // ── Items table ───────────────────────────────────────────────────────────
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(7)
   doc.setTextColor(...MUTED)
@@ -152,7 +192,6 @@ async function buildInvoiceDoc(
     items.forEach((item) => {
       if (y > 242) { doc.addPage(); y = M + 10 }
 
-      // Name row
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(9)
       doc.setTextColor(...INK)
@@ -161,7 +200,6 @@ async function buildInvoiceDoc(
       doc.text(formatCurrency(item.unit_price),   PRICE_EDGE, y, { align: 'right' })
       doc.text(formatCurrency(item.line_total),   TOTAL_EDGE, y, { align: 'right' })
 
-      // Details sub-row
       const details = [item.garment_type, item.fabric, item.colour, item.size]
         .filter(Boolean).join(' · ')
       if (details) {
@@ -179,7 +217,6 @@ async function buildInvoiceDoc(
 
   y += 5
 
-  // ── Totals ────────────────────────────────────────────────────────────────
   function totalsRow(
     label: string,
     value: string,
@@ -210,7 +247,6 @@ async function buildInvoiceDoc(
 
   y += 8
 
-  // ── Payment history ───────────────────────────────────────────────────────
   if (payments.length > 0) {
     if (y > 242) { doc.addPage(); y = M + 10 }
     hr(doc, y)
@@ -237,19 +273,162 @@ async function buildInvoiceDoc(
     y += 4
   }
 
-  // ── Banking / footer ──────────────────────────────────────────────────────
-  y = Math.max(y, 218)
+  addDocFooter(doc, y, invoice.invoice_number)
+  return doc
+}
+
+async function buildQuoteDoc(
+  quote: QuoteWithClient,
+  items: QuoteItem[],
+): Promise<jsPDF> {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' })
+  let y = M
+
+  const logoData = await loadLogo()
+  const LOGO = 26
+
+  if (logoData) {
+    doc.addImage(logoData, 'JPEG', M, y, LOGO, LOGO)
+  } else {
+    doc.setFont('times', 'normal')
+    doc.setFontSize(16)
+    doc.setTextColor(...INK)
+    doc.text('TADI wa NASHE', M, y + 10)
+  }
+
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(26)
+  doc.setTextColor(...INK)
+  doc.text('QUOTE', RIGHT, y + 9, { align: 'right' })
+
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(9)
+  doc.setTextColor(...MUTED)
+  doc.text(quote.quote_number, RIGHT, y + 16, { align: 'right' })
+
+  y += LOGO + 8
   hr(doc, y, ACCENT)
-  y += 6
+  y += 8
+
+  const META_X = M + 110
 
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(7)
-  doc.setTextColor(...ACCENT)
-  doc.text('PAYMENT REFERENCE', M, y)
-  doc.setFont('helvetica', 'normal')
   doc.setTextColor(...MUTED)
-  doc.text('Please use your invoice number as the payment reference.', M + 38, y)
+  doc.text('PREPARED FOR', M, y)
 
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(11)
+  doc.setTextColor(...INK)
+  doc.text(trunc(quote.clients.full_name, 34), M, y + 6)
+
+  if (quote.clients.email) {
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(8.5)
+    doc.setTextColor(...MUTED)
+    doc.text(trunc(quote.clients.email, 38), M, y + 12)
+  }
+
+  const metaRows: [string, string][] = [
+    ['Quote date', formatDate(quote.issue_date)],
+    ['Status',     quote.status.toUpperCase()],
+  ]
+
+  metaRows.forEach(([label, value], i) => {
+    const ry = y + i * 6.5
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(8.5)
+    doc.setTextColor(...MUTED)
+    doc.text(label, META_X, ry)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(...INK)
+    doc.text(value, RIGHT, ry, { align: 'right' })
+  })
+
+  y += 26
+  hr(doc, y)
+  y += 8
+
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(7)
+  doc.setTextColor(...MUTED)
+  doc.text('DESCRIPTION', M, y)
+  doc.text('QTY',        QTY_EDGE,   y, { align: 'right' })
+  doc.text('UNIT PRICE', PRICE_EDGE, y, { align: 'right' })
+  doc.text('TOTAL',      TOTAL_EDGE, y, { align: 'right' })
+
+  y += 3
+  hr(doc, y)
+  y += 5
+
+  if (items.length === 0) {
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9)
+    doc.setTextColor(...MUTED)
+    doc.text('No items added yet.', M, y)
+    y += 9
+  } else {
+    items.forEach((item) => {
+      if (y > 242) { doc.addPage(); y = M + 10 }
+
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(9)
+      doc.setTextColor(...INK)
+      doc.text(trunc(item.description, 52), M, y)
+      doc.text(String(item.quantity),             QTY_EDGE,   y, { align: 'right' })
+      doc.text(formatCurrency(item.unit_price),   PRICE_EDGE, y, { align: 'right' })
+      doc.text(formatCurrency(item.line_total),   TOTAL_EDGE, y, { align: 'right' })
+
+      if (item.notes) {
+        y += 5
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(7.5)
+        doc.setTextColor(...MUTED)
+        doc.text(trunc(item.notes, 58), M, y)
+      }
+
+      y += 7
+      hr(doc, y - 1, BORDER)
+    })
+  }
+
+  y += 5
+
+  function totalsRow(
+    label: string,
+    value: string,
+    opts: { bold?: boolean; lineAbove?: boolean } = {},
+  ) {
+    if (opts.lineAbove) {
+      hr(doc, y - 2, BORDER)
+      y += 2
+    }
+    doc.setFont('helvetica', opts.bold ? 'bold' : 'normal')
+    doc.setFontSize(opts.bold ? 10 : 9)
+    doc.setTextColor(...MUTED)
+    doc.text(label, TOTAL_LABEL_X, y)
+    doc.setFont('helvetica', opts.bold ? 'bold' : 'normal')
+    doc.setTextColor(...INK)
+    doc.text(value, TOTAL_EDGE, y, { align: 'right' })
+    y += opts.bold ? 7 : 5.5
+  }
+
+  totalsRow('Subtotal', formatCurrency(quote.subtotal))
+  totalsRow(`VAT (${(VAT_RATE * 100).toFixed(0)}%)`, formatCurrency(quote.vat_amount))
+  totalsRow('TOTAL', formatCurrency(quote.total_amount), { bold: true, lineAbove: true })
+
+  if (quote.notes) {
+    y += 6
+    doc.setFont('helvetica', 'italic')
+    doc.setFontSize(8.5)
+    doc.setTextColor(...MUTED)
+    const noteLines = doc.splitTextToSize(quote.notes, RIGHT - M)
+    doc.text(noteLines, M, y)
+    y += noteLines.length * 5
+  }
+
+  y += 8
+  addDocFooter(doc, y, quote.quote_number)
   return doc
 }
 
@@ -271,6 +450,14 @@ export async function getInvoicePDFBase64(
   return doc.output('datauristring').split(',')[1]
 }
 
+export async function generateQuotePDF(
+  quote: QuoteWithClient,
+  items: QuoteItem[],
+): Promise<void> {
+  const doc = await buildQuoteDoc(quote, items)
+  doc.save(`${quote.quote_number}.pdf`)
+}
+
 export function buildEmailBody(invoice: InvoiceWithClient, items: OrderItem[]): string {
   const itemRows = items.length > 0
     ? items.map((i) =>
@@ -289,7 +476,6 @@ export function buildEmailBody(invoice: InvoiceWithClient, items: OrderItem[]): 
   <div style="max-width:600px;margin:32px auto;background:#fff;border:1px solid #e5e3de;border-radius:8px;overflow:hidden">
     <div style="background:#1a1a18;padding:28px 32px">
       <div style="font-size:18px;letter-spacing:0.1em;text-transform:uppercase;color:#f0eee9">TADI wa NASHE</div>
-      <div style="font-size:11px;color:#b8845a;margin-top:4px;letter-spacing:0.06em">We belong to God</div>
     </div>
     <div style="padding:32px">
       <p style="font-size:15px;margin:0 0 8px">Dear ${invoice.clients.full_name},</p>
@@ -318,6 +504,57 @@ export function buildEmailBody(invoice: InvoiceWithClient, items: OrderItem[]): 
     </div>
     <div style="background:#f4f3f0;padding:16px 32px;font-size:11px;color:#a09d97;text-align:center;border-top:1px solid #e5e3de">
       Invoice ${invoice.invoice_number} · Please use the invoice number as your payment reference.
+    </div>
+  </div>
+</body>
+</html>`
+}
+
+export function buildQuoteEmailBody(quote: QuoteWithClient, items: QuoteItem[]): string {
+  const itemRows = items.length > 0
+    ? items.map((i) =>
+        `<tr>
+          <td style="padding:8px 12px;border-bottom:1px solid #e5e3de">${i.description}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #e5e3de;text-align:center">${i.quantity}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #e5e3de;text-align:right">${formatCurrency(i.unit_price)}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #e5e3de;text-align:right"><strong>${formatCurrency(i.line_total)}</strong></td>
+        </tr>`
+      ).join('')
+    : `<tr><td colspan="4" style="padding:8px 12px;color:#a09d97">See attached quote for details.</td></tr>`
+
+  return `<!DOCTYPE html>
+<html>
+<body style="margin:0;padding:0;background:#fafaf8;font-family:Georgia,serif;color:#1a1a18">
+  <div style="max-width:600px;margin:32px auto;background:#fff;border:1px solid #e5e3de;border-radius:8px;overflow:hidden">
+    <div style="background:#1a1a18;padding:28px 32px">
+      <div style="font-size:18px;letter-spacing:0.1em;text-transform:uppercase;color:#f0eee9">TADI wa NASHE</div>
+    </div>
+    <div style="padding:32px">
+      <p style="font-size:15px;margin:0 0 8px">Dear ${quote.clients.full_name},</p>
+      <p style="font-size:14px;color:#6b6860;margin:0 0 24px;line-height:1.6">
+        Please find your quote below. Don't hesitate to reach out with any questions.
+      </p>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:24px">
+        <thead>
+          <tr style="background:#f4f3f0">
+            <th style="padding:10px 12px;text-align:left;font-size:11px;letter-spacing:0.06em;color:#a09d97;text-transform:uppercase">Description</th>
+            <th style="padding:10px 12px;text-align:center;font-size:11px;letter-spacing:0.06em;color:#a09d97;text-transform:uppercase">Qty</th>
+            <th style="padding:10px 12px;text-align:right;font-size:11px;letter-spacing:0.06em;color:#a09d97;text-transform:uppercase">Price</th>
+            <th style="padding:10px 12px;text-align:right;font-size:11px;letter-spacing:0.06em;color:#a09d97;text-transform:uppercase">Total</th>
+          </tr>
+        </thead>
+        <tbody>${itemRows}</tbody>
+      </table>
+      <div style="border-top:2px solid #1a1a18;padding-top:16px;text-align:right">
+        <div style="font-size:12px;color:#6b6860;margin-bottom:4px">Subtotal: ${formatCurrency(quote.subtotal)}</div>
+        <div style="font-size:12px;color:#6b6860;margin-bottom:8px">VAT (15%): ${formatCurrency(quote.vat_amount)}</div>
+        <div style="font-size:18px;font-weight:bold">Total: ${formatCurrency(quote.total_amount)}</div>
+      </div>
+      ${quote.notes ? `<p style="margin-top:24px;font-size:13px;color:#6b6860;line-height:1.6">${quote.notes}</p>` : ''}
+      <p style="margin-top:32px;font-size:14px">Thank you,<br><strong>Tadiwanashe</strong><br><span style="color:#b8845a;font-size:12px">TADI wa NASHE</span></p>
+    </div>
+    <div style="background:#f4f3f0;padding:16px 32px;font-size:11px;color:#a09d97;text-align:center;border-top:1px solid #e5e3de">
+      Quote ${quote.quote_number} · tadiwanashekaparipari@outlook.com · +27 73 928 0572
     </div>
   </div>
 </body>

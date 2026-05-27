@@ -14,15 +14,15 @@ const STATUS_FILTERS: { label: string; value: OrderStatus | 'all' }[] = [
   { label: 'All',      value: 'all'      },
   { label: 'Consult',  value: 'consult'  },
   { label: 'Service',  value: 'service'  },
-  { label: 'Complete', value: 'complete' },
   { label: 'Delivery', value: 'delivery' },
+  { label: 'Complete', value: 'complete' },
 ]
 
 const STATUS_MAP: Record<OrderStatus, { label: string; colour: string }> = {
   consult:  { label: 'Consult',  colour: 'blue'  },
   service:  { label: 'Service',  colour: 'amber' },
+  delivery: { label: 'Delivery', colour: 'accent' },
   complete: { label: 'Complete', colour: 'green' },
-  delivery: { label: 'Delivery', colour: 'green' },
 }
 
 const TYPE_LABELS: Record<OrderType, string> = {
