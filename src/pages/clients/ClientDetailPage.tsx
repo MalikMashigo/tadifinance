@@ -1,13 +1,28 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Pencil, Plus, Ruler, Trash2 } from 'lucide-react'
 import { ClientTypeBadge } from '../../components/ui/Badge'
 import { ClientForm } from './ClientForm'
 import { MeasurementForm } from './MeasurementForm'
+import { OrderForm } from '../orders/OrderForm'
 import { useClient } from '../../hooks/useClients'
 import { deleteClient } from '../../lib/clients'
-import { formatDate } from '../../utils/format'
+import { createOrder, fetchOrdersByClient, type ClientOrderSummary } from '../../lib/orders'
+import { formatCurrency, formatDate } from '../../utils/format'
 import type { ClientInsert } from '../../lib/clients'
+
+const SIZE_SYSTEM_LABEL: Record<string, string> = {
+  'S-XXL': 'S – XXL',
+  'EU':    'European (EU)',
+  'US':    'US sizing',
+}
+
+const ORDER_STATUS_LABEL: Record<string, string> = {
+  consult:  'Consult',
+  service:  'Service',
+  complete: 'Complete',
+  delivery: 'Delivery',
+}
 
 function MeasurementRow({ label, value }: { label: string; value: number | null }) {
   if (value === null) return null
@@ -24,9 +39,17 @@ export function ClientDetailPage() {
   const navigate = useNavigate()
   const { client, measurements, loading, error, updateClientData, addMeasurement } = useClient(id!)
 
-  const [editOpen, setEditOpen] = useState(false)
-  const [measureOpen, setMeasureOpen] = useState(false)
-  const [deleting, setDeleting] = useState(false)
+  const [editOpen, setEditOpen]         = useState(false)
+  const [measureOpen, setMeasureOpen]   = useState(false)
+  const [orderFormOpen, setOrderFormOpen] = useState(false)
+  const [deleting, setDeleting]         = useState(false)
+  const [orders, setOrders]             = useState<ClientOrderSummary[]>([])
+
+  useEffect(() => {
+    if (id) {
+      fetchOrdersByClient(id).then(setOrders).catch(() => {})
+    }
+  }, [id])
 
   async function handleDelete() {
     if (!client) return
@@ -39,6 +62,12 @@ export function ClientDetailPage() {
       alert((e as Error).message)
       setDeleting(false)
     }
+  }
+
+  async function handleCreateOrder(data: Parameters<typeof createOrder>[0]) {
+    const created = await createOrder(data)
+    setOrders((prev) => [{ ...created }, ...prev] as ClientOrderSummary[])
+    return created
   }
 
   if (loading) return <div className="page"><p className="state-msg">Loading…</p></div>
@@ -59,11 +88,7 @@ export function ClientDetailPage() {
             <Pencil size={15} />
             Edit
           </button>
-          <button
-            className="btn btn--danger"
-            onClick={handleDelete}
-            disabled={deleting}
-          >
+          <button className="btn btn--danger" onClick={handleDelete} disabled={deleting}>
             <Trash2 size={15} />
             {deleting ? 'Deleting…' : 'Delete'}
           </button>
@@ -86,6 +111,9 @@ export function ClientDetailPage() {
               {client.phone && <span>{client.phone}</span>}
               {(client.city || client.country) && (
                 <span>{[client.city, client.country].filter(Boolean).join(', ')}</span>
+              )}
+              {client.size_system && (
+                <span>Size: {SIZE_SYSTEM_LABEL[client.size_system] ?? client.size_system}</span>
               )}
             </div>
             {client.style_preferences && (
@@ -126,13 +154,17 @@ export function ClientDetailPage() {
             </div>
           ) : (
             <div className="measure-grid">
-              <MeasurementRow label="Bust" value={latest.bust} />
-              <MeasurementRow label="Waist" value={latest.waist} />
-              <MeasurementRow label="Hips" value={latest.hips} />
+              <MeasurementRow label="Bust"           value={latest.bust} />
+              <MeasurementRow label="Waist"          value={latest.waist} />
+              <MeasurementRow label="Hips"           value={latest.hips} />
               <MeasurementRow label="Shoulder width" value={latest.shoulder_width} />
-              <MeasurementRow label="Sleeve length" value={latest.sleeve_length} />
-              <MeasurementRow label="Torso length" value={latest.torso_length} />
-              <MeasurementRow label="Inseam" value={latest.inseam} />
+              <MeasurementRow label="Sleeve length"  value={latest.sleeve_length} />
+              <MeasurementRow label="Wrist"          value={latest.wrist} />
+              <MeasurementRow label="Bicep"          value={latest.bicep} />
+              <MeasurementRow label="Waist to knee"  value={latest.waist_to_knee} />
+              <MeasurementRow label="Waist to ankle" value={latest.waist_to_ankle} />
+              <MeasurementRow label="Waist to hip"   value={latest.waist_to_hip} />
+              <MeasurementRow label="Inseam"         value={latest.inseam} />
             </div>
           )}
 
@@ -144,9 +176,9 @@ export function ClientDetailPage() {
                   <div key={m.id} className="measure-history__entry">
                     <strong>{formatDate(m.measured_at)}</strong>
                     <div className="measure-grid measure-grid--sm">
-                      <MeasurementRow label="Bust" value={m.bust} />
+                      <MeasurementRow label="Bust"  value={m.bust} />
                       <MeasurementRow label="Waist" value={m.waist} />
-                      <MeasurementRow label="Hips" value={m.hips} />
+                      <MeasurementRow label="Hips"  value={m.hips} />
                     </div>
                   </div>
                 ))}
@@ -155,14 +187,53 @@ export function ClientDetailPage() {
           )}
         </section>
 
-        {/* Orders placeholder */}
+        {/* Orders */}
         <section className="detail-section">
           <div className="detail-section__heading">
             <h3>Orders</h3>
+            <button className="btn btn--primary btn--sm" onClick={() => setOrderFormOpen(true)}>
+              <Plus size={14} />
+              New order
+            </button>
           </div>
-          <div className="empty-state empty-state--sm">
-            <p>Orders will appear here once you start tracking them.</p>
-          </div>
+
+          {orders.length === 0 ? (
+            <div className="empty-state empty-state--sm">
+              <p>No orders yet.</p>
+            </div>
+          ) : (
+            <div className="payments-all-list">
+              {orders.map((o) => (
+                <div
+                  key={o.id}
+                  className="payments-all-row"
+                  onClick={() => navigate(`/orders/${o.id}`)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => e.key === 'Enter' && navigate(`/orders/${o.id}`)}
+                >
+                  <div className="payments-all-row__left">
+                    <span
+                      className="payments-all-row__method"
+                      style={{ background: 'var(--colour-ink)' }}
+                    >
+                      {ORDER_STATUS_LABEL[o.status] ?? o.status}
+                    </span>
+                    <div className="payments-all-row__body">
+                      <span className="payments-all-row__client">{o.order_number}</span>
+                      <span className="payments-all-row__meta">
+                        {o.collection_name && <>{o.collection_name} · </>}
+                        {o.due_date ? `Due ${formatDate(o.due_date)}` : 'No due date'}
+                      </span>
+                    </div>
+                  </div>
+                  {o.total_amount > 0 && (
+                    <span className="payments-all-row__amount">{formatCurrency(o.total_amount)}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </section>
       </div>
 
@@ -177,6 +248,13 @@ export function ClientDetailPage() {
         open={measureOpen}
         onClose={() => setMeasureOpen(false)}
         onSubmit={addMeasurement}
+      />
+
+      <OrderForm
+        open={orderFormOpen}
+        onClose={() => setOrderFormOpen(false)}
+        onSubmit={handleCreateOrder}
+        preselectedClientId={client.id}
       />
     </div>
   )

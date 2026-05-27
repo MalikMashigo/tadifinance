@@ -1,15 +1,12 @@
-export type ClientType = 'retail' | 'stylist' | 'media' | 'wholesale'
-
-export type OrderType = 'bespoke' | 'collection' | 'alteration'
+export type ClientType  = 'retail' | 'stylist' | 'custom'
+export type SizeSystem  = 'S-XXL' | 'EU' | 'US'
+export type OrderType   = 'bespoke' | 'outsourcing' | 'alteration'
 
 export type OrderStatus =
   | 'consult'
-  | 'pattern'
-  | 'cutting'
-  | 'sewing'
-  | 'fitting'
+  | 'service'
   | 'complete'
-  | 'delivered'
+  | 'delivery'
 
 export type InvoiceStatus =
   | 'draft'
@@ -37,6 +34,7 @@ export interface Client {
   city: string | null
   country: string
   client_type: ClientType
+  size_system: SizeSystem | null
   notes: string | null
   style_preferences: string | null
   created_at: string
@@ -50,7 +48,11 @@ export interface Measurement {
   hips: number | null
   shoulder_width: number | null
   sleeve_length: number | null
-  torso_length: number | null
+  wrist: number | null
+  bicep: number | null
+  waist_to_knee: number | null
+  waist_to_ankle: number | null
+  waist_to_hip: number | null
   inseam: number | null
   notes: string | null
   measured_at: string

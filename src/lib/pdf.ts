@@ -10,7 +10,6 @@ const MUTED: RGB  = [107, 104, 96]
 const ACCENT: RGB = [184, 132, 90]
 const BORDER: RGB = [229, 227, 222]
 const GREEN: RGB  = [74, 124, 89]
-const TAGLINE = '"Tadi wa Nashe" — We belong to God'
 
 const W      = 210
 const M      = 14   // margin
@@ -250,12 +249,6 @@ async function buildInvoiceDoc(
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(...MUTED)
   doc.text('Please use your invoice number as the payment reference.', M + 38, y)
-
-  hr(doc, 283, BORDER)
-  doc.setFont('times', 'italic')
-  doc.setFontSize(7.5)
-  doc.setTextColor(...MUTED)
-  doc.text(TAGLINE, W / 2, 288, { align: 'center' })
 
   return doc
 }

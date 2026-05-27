@@ -92,3 +92,22 @@ export async function deleteOrderItem(id: string): Promise<void> {
   const { error } = await supabase.from('order_items').delete().eq('id', id)
   if (error) throw error
 }
+
+export type ClientOrderSummary = {
+  id: string
+  order_number: string
+  status: OrderStatus
+  collection_name: string | null
+  total_amount: number
+  due_date: string | null
+}
+
+export async function fetchOrdersByClient(clientId: string): Promise<ClientOrderSummary[]> {
+  const { data, error } = await supabase
+    .from('orders')
+    .select('id, order_number, status, collection_name, total_amount, due_date')
+    .eq('client_id', clientId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data as ClientOrderSummary[]
+}

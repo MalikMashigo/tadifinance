@@ -11,13 +11,10 @@ import { formatCurrency, formatDate, calcVat, VAT_RATE } from '../../utils/forma
 import type { OrderStatus } from '../../types/database'
 
 const STATUS_MAP: Record<OrderStatus, { label: string; colour: string }> = {
-  consult:   { label: 'Consult',   colour: 'blue' },
-  pattern:   { label: 'Pattern',   colour: 'amber' },
-  cutting:   { label: 'Cutting',   colour: 'amber' },
-  sewing:    { label: 'Sewing',    colour: 'accent' },
-  fitting:   { label: 'Fitting',   colour: 'accent' },
-  complete:  { label: 'Complete',  colour: 'green' },
-  delivered: { label: 'Delivered', colour: 'green' },
+  consult:  { label: 'Consult',  colour: 'blue'   },
+  service:  { label: 'Service',  colour: 'amber'  },
+  complete: { label: 'Complete', colour: 'green'  },
+  delivery: { label: 'Delivery', colour: 'green'  },
 }
 
 export function OrderDetailPage() {

@@ -2,13 +2,10 @@ import { Check } from 'lucide-react'
 import type { OrderStatus } from '../../types/database'
 
 const ORDER_STEPS: { status: OrderStatus; label: string }[] = [
-  { status: 'consult',  label: 'Consult' },
-  { status: 'pattern',  label: 'Pattern' },
-  { status: 'cutting',  label: 'Cutting' },
-  { status: 'sewing',   label: 'Sewing' },
-  { status: 'fitting',  label: 'Fitting' },
+  { status: 'consult',  label: 'Consult'  },
+  { status: 'service',  label: 'Service'  },
   { status: 'complete', label: 'Complete' },
-  { status: 'delivered',label: 'Delivered' },
+  { status: 'delivery', label: 'Delivery' },
 ]
 
 interface StatusStepperProps {
@@ -22,7 +19,7 @@ export function StatusStepper({ current, onChange }: StatusStepperProps) {
   return (
     <div className="stepper">
       {ORDER_STEPS.map((step, idx) => {
-        const done = idx < currentIdx
+        const done   = idx < currentIdx
         const active = idx === currentIdx
         return (
           <button
@@ -36,7 +33,9 @@ export function StatusStepper({ current, onChange }: StatusStepperProps) {
               {done ? <Check size={10} strokeWidth={3} /> : <span>{idx + 1}</span>}
             </div>
             <span className="stepper__label">{step.label}</span>
-            {idx < ORDER_STEPS.length - 1 && <div className={`stepper__line ${done ? 'stepper__line--done' : ''}`} />}
+            {idx < ORDER_STEPS.length - 1 && (
+              <div className={`stepper__line ${done ? 'stepper__line--done' : ''}`} />
+            )}
           </button>
         )
       })}

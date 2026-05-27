@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Modal } from '../../components/ui/Modal'
 import { Field, Input, Textarea, Select } from '../../components/ui/Field'
-import type { Client, ClientType } from '../../types/database'
+import type { Client, ClientType, SizeSystem } from '../../types/database'
 import type { ClientInsert } from '../../lib/clients'
 
 interface ClientFormProps {
@@ -12,27 +12,29 @@ interface ClientFormProps {
 }
 
 const empty: ClientInsert = {
-  full_name: '',
-  email: '',
-  phone: '',
-  address: '',
-  city: '',
-  country: 'South Africa',
-  client_type: 'retail',
-  notes: '',
+  full_name:        '',
+  email:            '',
+  phone:            '',
+  address:          '',
+  city:             '',
+  country:          'South Africa',
+  client_type:      'retail',
+  size_system:      null,
+  notes:            '',
   style_preferences: '',
 }
 
 function toInsert(c: Client): ClientInsert {
   return {
-    full_name: c.full_name,
-    email: c.email ?? '',
-    phone: c.phone ?? '',
-    address: c.address ?? '',
-    city: c.city ?? '',
-    country: c.country,
-    client_type: c.client_type,
-    notes: c.notes ?? '',
+    full_name:        c.full_name,
+    email:            c.email ?? '',
+    phone:            c.phone ?? '',
+    address:          c.address ?? '',
+    city:             c.city ?? '',
+    country:          c.country,
+    client_type:      c.client_type,
+    size_system:      c.size_system ?? null,
+    notes:            c.notes ?? '',
     style_preferences: c.style_preferences ?? '',
   }
 }
@@ -40,7 +42,7 @@ function toInsert(c: Client): ClientInsert {
 export function ClientForm({ open, onClose, onSubmit, initial }: ClientFormProps) {
   const [form, setForm] = useState<ClientInsert>(initial ? toInsert(initial) : empty)
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError]   = useState<string | null>(null)
 
   function set<K extends keyof ClientInsert>(key: K, value: ClientInsert[K]) {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -54,11 +56,11 @@ export function ClientForm({ open, onClose, onSubmit, initial }: ClientFormProps
     try {
       await onSubmit({
         ...form,
-        email: form.email?.trim() || null,
-        phone: form.phone?.trim() || null,
-        address: form.address?.trim() || null,
-        city: form.city?.trim() || null,
-        notes: form.notes?.trim() || null,
+        email:            form.email?.trim()            || null,
+        phone:            form.phone?.trim()            || null,
+        address:          form.address?.trim()          || null,
+        city:             form.city?.trim()             || null,
+        notes:            form.notes?.trim()            || null,
         style_preferences: form.style_preferences?.trim() || null,
       } as ClientInsert)
       onClose()
@@ -71,14 +73,10 @@ export function ClientForm({ open, onClose, onSubmit, initial }: ClientFormProps
   }
 
   return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title={initial ? 'Edit client' : 'New client'}
-      width="md"
-    >
+    <Modal open={open} onClose={onClose} title={initial ? 'Edit client' : 'New client'} width="md">
       <form onSubmit={handleSubmit} className="form">
         <div className="form__grid form__grid--2">
+
           <Field label="Full name" required>
             <Input
               value={form.full_name}
@@ -96,8 +94,7 @@ export function ClientForm({ open, onClose, onSubmit, initial }: ClientFormProps
             >
               <option value="retail">Retail</option>
               <option value="stylist">Stylist</option>
-              <option value="media">Media</option>
-              <option value="wholesale">Wholesale</option>
+              <option value="custom">Custom</option>
             </Select>
           </Field>
 
@@ -133,6 +130,19 @@ export function ClientForm({ open, onClose, onSubmit, initial }: ClientFormProps
               onChange={(e) => set('country', e.target.value)}
             />
           </Field>
+
+          <Field label="Size system">
+            <Select
+              value={form.size_system ?? ''}
+              onChange={(e) => set('size_system', (e.target.value as SizeSystem) || null)}
+            >
+              <option value="">Not specified</option>
+              <option value="S-XXL">S – XXL</option>
+              <option value="EU">European (EU)</option>
+              <option value="US">US sizing</option>
+            </Select>
+          </Field>
+
         </div>
 
         <Field label="Address">
@@ -162,9 +172,7 @@ export function ClientForm({ open, onClose, onSubmit, initial }: ClientFormProps
         {error && <p className="form__error">{error}</p>}
 
         <div className="form__actions">
-          <button type="button" className="btn btn--secondary" onClick={onClose}>
-            Cancel
-          </button>
+          <button type="button" className="btn btn--secondary" onClick={onClose}>Cancel</button>
           <button type="submit" className="btn btn--primary" disabled={saving}>
             {saving ? 'Saving…' : initial ? 'Save changes' : 'Create client'}
           </button>

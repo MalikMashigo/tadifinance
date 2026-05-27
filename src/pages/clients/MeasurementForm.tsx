@@ -11,13 +11,15 @@ interface MeasurementFormProps {
 
 const empty = {
   bust: '', waist: '', hips: '', shoulder_width: '',
-  sleeve_length: '', torso_length: '', inseam: '', notes: '',
+  sleeve_length: '', wrist: '', bicep: '',
+  waist_to_knee: '', waist_to_ankle: '', waist_to_hip: '',
+  inseam: '', notes: '',
 }
 
 export function MeasurementForm({ open, onClose, onSubmit }: MeasurementFormProps) {
   const [form, setForm] = useState(empty)
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError]   = useState<string | null>(null)
 
   function set(key: keyof typeof empty, value: string) {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -34,14 +36,18 @@ export function MeasurementForm({ open, onClose, onSubmit }: MeasurementFormProp
     setError(null)
     try {
       await onSubmit({
-        bust: toNum(form.bust),
-        waist: toNum(form.waist),
-        hips: toNum(form.hips),
+        bust:           toNum(form.bust),
+        waist:          toNum(form.waist),
+        hips:           toNum(form.hips),
         shoulder_width: toNum(form.shoulder_width),
-        sleeve_length: toNum(form.sleeve_length),
-        torso_length: toNum(form.torso_length),
-        inseam: toNum(form.inseam),
-        notes: form.notes.trim() || null,
+        sleeve_length:  toNum(form.sleeve_length),
+        wrist:          toNum(form.wrist),
+        bicep:          toNum(form.bicep),
+        waist_to_knee:  toNum(form.waist_to_knee),
+        waist_to_ankle: toNum(form.waist_to_ankle),
+        waist_to_hip:   toNum(form.waist_to_hip),
+        inseam:         toNum(form.inseam),
+        notes:          form.notes.trim() || null,
       })
       onClose()
       setForm(empty)
@@ -59,13 +65,17 @@ export function MeasurementForm({ open, onClose, onSubmit }: MeasurementFormProp
 
         <div className="form__grid form__grid--3">
           {([
-            ['bust', 'Bust'],
-            ['waist', 'Waist'],
-            ['hips', 'Hips'],
+            ['bust',           'Bust'],
+            ['waist',          'Waist'],
+            ['hips',           'Hips'],
             ['shoulder_width', 'Shoulder width'],
-            ['sleeve_length', 'Sleeve length'],
-            ['torso_length', 'Torso length'],
-            ['inseam', 'Inseam'],
+            ['sleeve_length',  'Sleeve length'],
+            ['wrist',          'Wrist'],
+            ['bicep',          'Bicep'],
+            ['waist_to_knee',  'Waist to knee'],
+            ['waist_to_ankle', 'Waist to ankle'],
+            ['waist_to_hip',   'Waist to hip'],
+            ['inseam',         'Inseam'],
           ] as const).map(([key, label]) => (
             <Field key={key} label={label}>
               <Input

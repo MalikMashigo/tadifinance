@@ -53,9 +53,7 @@ export function InvoiceForm({ open, onClose, onSubmit, preselectedOrderId, prese
 
     const linked = orders.find((o) => o.id === orderId)
     if (linked && linked.total_amount > 0) {
-      // Derive subtotal from order total (reverse VAT)
-      const sub = Math.round((linked.total_amount / 1.15) * 100) / 100
-      setSubtotal(sub.toFixed(2))
+      setSubtotal(linked.total_amount.toFixed(2))
     }
   }, [orderId, orders])
 

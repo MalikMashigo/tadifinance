@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Modal } from '../../components/ui/Modal'
 import { Field, Input, Textarea, Select } from '../../components/ui/Field'
 import { fetchClients } from '../../lib/clients'
-import type { Client, OrderType } from '../../types/database'
+import type { Client, OrderType, OrderStatus } from '../../types/database'
 import type { OrderInsert, OrderWithClient } from '../../lib/orders'
 
 interface OrderFormProps {
@@ -16,16 +16,17 @@ interface OrderFormProps {
 export function OrderForm({ open, onClose, onSubmit, initial, preselectedClientId }: OrderFormProps) {
   const [clients, setClients] = useState<Client[]>([])
   const [form, setForm] = useState({
-    client_id: initial?.client_id ?? preselectedClientId ?? '',
-    order_type: initial?.order_type ?? 'bespoke' as OrderType,
-    collection_name: initial?.collection_name ?? '',
-    description: initial?.description ?? '',
-    due_date: initial?.due_date ?? '',
-    deposit_amount: initial?.deposit_amount?.toString() ?? '',
-    notes: initial?.notes ?? '',
+    client_id:       initial?.client_id       ?? preselectedClientId ?? '',
+    order_type:      initial?.order_type       ?? 'bespoke' as OrderType,
+    status:          initial?.status           ?? 'consult' as OrderStatus,
+    collection_name: initial?.collection_name  ?? '',
+    description:     initial?.description      ?? '',
+    due_date:        initial?.due_date         ?? '',
+    deposit_amount:  initial?.deposit_amount?.toString() ?? '',
+    notes:           initial?.notes            ?? '',
   })
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError]   = useState<string | null>(null)
 
   useEffect(() => {
     if (open) fetchClients().then(setClients).catch(() => {})
@@ -43,17 +44,17 @@ export function OrderForm({ open, onClose, onSubmit, initial, preselectedClientI
     try {
       const deposit = parseFloat(form.deposit_amount) || 0
       await onSubmit({
-        client_id: form.client_id,
-        order_type: form.order_type,
-        status: initial?.status ?? 'consult',
+        client_id:       form.client_id,
+        order_type:      form.order_type,
+        status:          form.status,
         collection_name: form.collection_name.trim() || null,
-        description: form.description.trim() || null,
-        due_date: form.due_date || null,
-        delivery_date: initial?.delivery_date ?? null,
-        total_amount: initial?.total_amount ?? 0,
-        deposit_amount: deposit,
-        balance_due: (initial?.total_amount ?? 0) - deposit,
-        notes: form.notes.trim() || null,
+        description:     form.description.trim() || null,
+        due_date:        form.due_date || null,
+        delivery_date:   initial?.delivery_date ?? null,
+        total_amount:    initial?.total_amount ?? 0,
+        deposit_amount:  deposit,
+        balance_due:     (initial?.total_amount ?? 0) - deposit,
+        notes:           form.notes.trim() || null,
       })
       onClose()
     } catch (e) {
@@ -68,11 +69,7 @@ export function OrderForm({ open, onClose, onSubmit, initial, preselectedClientI
       <form onSubmit={handleSubmit} className="form">
 
         <Field label="Client" required>
-          <Select
-            value={form.client_id}
-            onChange={(e) => set('client_id', e.target.value)}
-            required
-          >
+          <Select value={form.client_id} onChange={(e) => set('client_id', e.target.value)} required>
             <option value="">Select a client…</option>
             {clients.map((c) => (
               <option key={c.id} value={c.id}>{c.full_name}</option>
@@ -81,23 +78,30 @@ export function OrderForm({ open, onClose, onSubmit, initial, preselectedClientI
         </Field>
 
         <div className="form__grid form__grid--2">
+
           <Field label="Order type">
-            <Select
-              value={form.order_type}
-              onChange={(e) => set('order_type', e.target.value as OrderType)}
-            >
+            <Select value={form.order_type} onChange={(e) => set('order_type', e.target.value as OrderType)}>
               <option value="bespoke">Bespoke</option>
-              <option value="collection">Collection</option>
+              <option value="outsourcing">Outsourcing</option>
               <option value="alteration">Alteration</option>
             </Select>
           </Field>
 
-          {form.order_type === 'collection' && (
-            <Field label="Collection name">
+          <Field label="Status">
+            <Select value={form.status} onChange={(e) => set('status', e.target.value as OrderStatus)}>
+              <option value="consult">Consult</option>
+              <option value="service">Service</option>
+              <option value="complete">Complete</option>
+              <option value="delivery">Delivery</option>
+            </Select>
+          </Field>
+
+          {form.order_type === 'outsourcing' && (
+            <Field label="Type of Look">
               <Input
                 value={form.collection_name}
                 onChange={(e) => set('collection_name', e.target.value)}
-                placeholder="e.g. Deborah SS25"
+                placeholder="e.g. Editorial SS25"
               />
             </Field>
           )}
@@ -120,6 +124,7 @@ export function OrderForm({ open, onClose, onSubmit, initial, preselectedClientI
               placeholder="0.00"
             />
           </Field>
+
         </div>
 
         <Field label="Description">
