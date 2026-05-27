@@ -45,7 +45,7 @@ export function PaymentsPage() {
     Promise.all([fetchAllPayments(), fetchInvoices()])
       .then(([pays, invs]) => {
         setPayments(pays)
-        setInvoices(invs.filter((i) => i.status !== 'paid'))
+        setInvoices(invs)
       })
       .catch((e) => setError((e as Error).message))
       .finally(() => setLoading(false))
@@ -90,7 +90,7 @@ export function PaymentsPage() {
       // Refresh payments list
       const [pays, invs] = await Promise.all([fetchAllPayments(), fetchInvoices()])
       setPayments(pays)
-      setInvoices(invs.filter((i) => i.status !== 'paid'))
+      setInvoices(invs)
       setModalOpen(false)
     } catch (e) {
       setFormError((e as Error).message)
@@ -177,7 +177,10 @@ export function PaymentsPage() {
               <option value="">Select an invoice…</option>
               {invoices.map((inv) => (
                 <option key={inv.id} value={inv.id}>
-                  {inv.invoice_number} — {inv.clients.full_name} ({formatCurrency(inv.balance_due > 0 ? inv.balance_due : inv.total_amount)} due)
+                  {inv.invoice_number} — {inv.clients.full_name}
+                  {inv.status === 'paid'
+                    ? ` (paid · ${formatCurrency(inv.total_amount)})`
+                    : ` (${formatCurrency(inv.balance_due > 0 ? inv.balance_due : inv.total_amount)} due)`}
                 </option>
               ))}
             </Select>
