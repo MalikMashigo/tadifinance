@@ -35,6 +35,7 @@ export interface Client {
   country: string
   client_type: ClientType
   size_system: SizeSystem | null
+  clothing_size: string | null
   notes: string | null
   style_preferences: string | null
   created_at: string

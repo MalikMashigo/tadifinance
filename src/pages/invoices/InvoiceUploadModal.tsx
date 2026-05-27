@@ -147,6 +147,7 @@ export function InvoiceUploadModal({ open, onClose, onImported }: Props) {
             country:          'ZA',
             client_type:      'retail',
             size_system:      null,
+            clothing_size:    null,
             notes:            null,
             style_preferences: null,
           })

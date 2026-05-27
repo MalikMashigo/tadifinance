@@ -113,7 +113,10 @@ export function ClientDetailPage() {
                 <span>{[client.city, client.country].filter(Boolean).join(', ')}</span>
               )}
               {client.size_system && (
-                <span>Size: {SIZE_SYSTEM_LABEL[client.size_system] ?? client.size_system}</span>
+                <span>
+                  Size: {SIZE_SYSTEM_LABEL[client.size_system] ?? client.size_system}
+                  {client.clothing_size && ` · ${client.clothing_size}`}
+                </span>
               )}
             </div>
             {client.style_preferences && (

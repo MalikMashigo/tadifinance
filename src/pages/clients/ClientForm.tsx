@@ -11,6 +11,12 @@ interface ClientFormProps {
   initial?: Client
 }
 
+const SIZE_OPTIONS: Record<SizeSystem, string[]> = {
+  'S-XXL': ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'],
+  'EU':    ['32', '34', '36', '38', '40', '42', '44', '46', '48', '50', '52'],
+  'US':    ['0', '2', '4', '6', '8', '10', '12', '14', '16', '18', '20'],
+}
+
 const empty: ClientInsert = {
   full_name:        '',
   email:            '',
@@ -20,6 +26,7 @@ const empty: ClientInsert = {
   country:          'South Africa',
   client_type:      'retail',
   size_system:      null,
+  clothing_size:    null,
   notes:            '',
   style_preferences: '',
 }
@@ -34,6 +41,7 @@ function toInsert(c: Client): ClientInsert {
     country:          c.country,
     client_type:      c.client_type,
     size_system:      c.size_system ?? null,
+    clothing_size:    c.clothing_size ?? null,
     notes:            c.notes ?? '',
     style_preferences: c.style_preferences ?? '',
   }
@@ -48,6 +56,14 @@ export function ClientForm({ open, onClose, onSubmit, initial }: ClientFormProps
     setForm((prev) => ({ ...prev, [key]: value }))
   }
 
+  function handleSizeSystemChange(system: SizeSystem | '') {
+    setForm((prev) => ({
+      ...prev,
+      size_system:   system || null,
+      clothing_size: null,   // reset size when system changes
+    }))
+  }
+
   async function handleSubmit(e: { preventDefault(): void }) {
     e.preventDefault()
     if (!form.full_name.trim()) return
@@ -56,11 +72,11 @@ export function ClientForm({ open, onClose, onSubmit, initial }: ClientFormProps
     try {
       await onSubmit({
         ...form,
-        email:            form.email?.trim()            || null,
-        phone:            form.phone?.trim()            || null,
-        address:          form.address?.trim()          || null,
-        city:             form.city?.trim()             || null,
-        notes:            form.notes?.trim()            || null,
+        email:            form.email?.trim()             || null,
+        phone:            form.phone?.trim()             || null,
+        address:          form.address?.trim()           || null,
+        city:             form.city?.trim()              || null,
+        notes:            form.notes?.trim()             || null,
         style_preferences: form.style_preferences?.trim() || null,
       } as ClientInsert)
       onClose()
@@ -71,6 +87,8 @@ export function ClientForm({ open, onClose, onSubmit, initial }: ClientFormProps
       setSaving(false)
     }
   }
+
+  const sizeChoices = form.size_system ? SIZE_OPTIONS[form.size_system] : []
 
   return (
     <Modal open={open} onClose={onClose} title={initial ? 'Edit client' : 'New client'} width="md">
@@ -131,15 +149,31 @@ export function ClientForm({ open, onClose, onSubmit, initial }: ClientFormProps
             />
           </Field>
 
+          {/* Size system + actual size side by side */}
           <Field label="Size system">
             <Select
               value={form.size_system ?? ''}
-              onChange={(e) => set('size_system', (e.target.value as SizeSystem) || null)}
+              onChange={(e) => handleSizeSystemChange(e.target.value as SizeSystem | '')}
             >
               <option value="">Not specified</option>
               <option value="S-XXL">S – XXL</option>
               <option value="EU">European (EU)</option>
               <option value="US">US sizing</option>
+            </Select>
+          </Field>
+
+          <Field label="Size">
+            <Select
+              value={form.clothing_size ?? ''}
+              onChange={(e) => set('clothing_size', e.target.value || null)}
+              disabled={!form.size_system}
+            >
+              <option value="">
+                {form.size_system ? 'Select size…' : 'Pick a system first'}
+              </option>
+              {sizeChoices.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
             </Select>
           </Field>
 
