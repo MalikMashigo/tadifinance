@@ -174,6 +174,7 @@ export function ExpensesPage() {
       </div>
 
       <ExpenseLogForm
+        key={subsection}
         open={formOpen}
         subsection={subsection}
         onClose={() => setFormOpen(false)}
