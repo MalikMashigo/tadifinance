@@ -59,7 +59,7 @@ export function OrdersPage() {
   }
 
   return (
-    <div className="page">
+    <div className="page orders-page">
       <Header
         title="Orders"
         onMenuClick={openSidebar}

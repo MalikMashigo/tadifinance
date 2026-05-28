@@ -75,7 +75,7 @@ export function InvoicesPage() {
   }
 
   return (
-    <div className="page">
+    <div className="page invoices-page">
       <Header
         title="Invoices"
         onMenuClick={openSidebar}

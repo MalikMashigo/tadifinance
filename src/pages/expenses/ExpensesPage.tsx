@@ -50,7 +50,7 @@ export function ExpensesPage() {
   const sectionTotal = logs.reduce((s, l) => s + l.total_amount, 0)
 
   return (
-    <div className="page">
+    <div className="page expenses-page">
       <Header
         title="Expenses"
         onMenuClick={openSidebar}

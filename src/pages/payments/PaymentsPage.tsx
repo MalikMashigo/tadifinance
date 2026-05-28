@@ -102,7 +102,7 @@ export function PaymentsPage() {
   const total = payments.reduce((s, p) => s + p.amount, 0)
 
   return (
-    <div className="page">
+    <div className="page payments-page">
       <Header
         title="Payments"
         onMenuClick={openSidebar}

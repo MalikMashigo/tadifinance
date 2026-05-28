@@ -74,7 +74,7 @@ export function DashboardPage() {
   const monthName = new Date().toLocaleString('en-ZA', { month: 'long', year: 'numeric' })
 
   return (
-    <div className="page">
+    <div className="page dashboard-page">
       <Header title="Dashboard" onMenuClick={openSidebar} />
 
       <div className="page__content">

@@ -1105,13 +1105,28 @@ img { display: block; max-width: 100%; }
 
 /* ─── Client list ────────────────────────────────────────────────────────── */
 
+.dashboard-page,
+.orders-page,
+.quotes-page,
+.invoices-page,
+.payments-page,
+.expenses-page,
+.reports-page,
 .clients-page {
-  background-image: url('/images/tadib1.png');
   background-size: cover;
   background-position: center center;
   background-repeat: no-repeat;
   background-attachment: fixed;
 }
+
+.dashboard-page  { background-image: url('/images/tadig.png');  }
+.orders-page     { background-image: url('/images/tadib2.png'); }
+.quotes-page     { background-image: url('/images/tadib3.png'); }
+.invoices-page   { background-image: url('/images/tadib4.png'); }
+.payments-page   { background-image: url('/images/tadib5.png'); }
+.expenses-page   { background-image: url('/images/tadib6.png'); }
+.reports-page    { background-image: url('/images/tadib7.png'); }
+.clients-page    { background-image: url('/images/tadib1.png'); }
 
 .clients-page .filter-pill {
   color: #fff;

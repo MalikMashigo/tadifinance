@@ -97,7 +97,7 @@ export function ReportsPage() {
     : []
 
   return (
-    <div className="page">
+    <div className="page reports-page">
       <Header
         title="Reports"
         onMenuClick={openSidebar}

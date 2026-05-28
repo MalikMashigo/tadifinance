@@ -71,7 +71,7 @@ export function QuotesPage() {
   }
 
   return (
-    <div className="page">
+    <div className="page quotes-page">
       <Header
         title="Quotes"
         onMenuClick={openSidebar}
