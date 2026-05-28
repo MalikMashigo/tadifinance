@@ -58,6 +58,8 @@ export function ClientsPage() {
       />
 
       <div className="page__content">
+        <div className="clients-hero" />
+
         <div className="toolbar">
           <div className="search-box">
             <Search size={16} className="search-box__icon" />
