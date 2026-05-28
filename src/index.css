@@ -1131,9 +1131,41 @@ img { display: block; max-width: 100%; }
 .clients-page .filter-pill,
 .orders-page .filter-pill,
 .quotes-page .filter-pill,
-.invoices-page .filter-pill {
+.invoices-page .filter-pill,
+.reports-page .filter-pill {
   color: #fff;
   border-color: rgba(255, 255, 255, 0.5);
+}
+
+.reports-page .report-tab {
+  color: #fff;
+}
+
+.reports-page .report-tab:hover {
+  color: #fff;
+}
+
+.reports-page .report-tab--active {
+  color: #fff;
+  border-bottom-color: #fff;
+}
+
+.reports-page .report-table-wrap {
+  background: #fff;
+}
+
+.reports-page .report-table th {
+  background: #fff;
+  color: var(--colour-ink-muted);
+}
+
+.reports-page .report-table td,
+.reports-page .report-table tfoot td {
+  background: #fff;
+}
+
+.reports-page .report-table tbody tr:hover {
+  background: #f5f5f5;
 }
 
 .expenses-page .expense-log-row {
@@ -1155,6 +1187,12 @@ img { display: block; max-width: 100%; }
 }
 
 .expenses-page .empty-state {
+  background: #ffffff;
+  border-radius: var(--radius);
+  border: 1px solid var(--colour-border);
+}
+
+.expenses-page .expense-section-banner {
   background: #ffffff;
   border-radius: var(--radius);
   border: 1px solid var(--colour-border);
