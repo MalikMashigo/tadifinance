@@ -4,7 +4,7 @@ import { Plus, Search, ChevronRight, Trash2 } from 'lucide-react'
 import { Header } from '../../components/layout/Header'
 import { StatusBadge } from '../../components/ui/Badge'
 import { QuoteForm } from './QuoteForm'
-import { fetchQuotes, createQuote, deleteQuote, type QuoteWithClient, type QuoteInsert } from '../../lib/quotes'
+import { fetchQuotes, deleteQuote, type QuoteWithClient } from '../../lib/quotes'
 import { formatCurrency, formatDate } from '../../utils/format'
 import type { QuoteStatus } from '../../types/database'
 
@@ -58,10 +58,6 @@ export function QuotesPage() {
     })
   }, [quotes, search, statusFilter])
 
-  async function handleAdd(data: QuoteInsert) {
-    const quote = await createQuote(data)
-    navigate(`/quotes/${quote.id}`)
-  }
 
   async function handleDelete(e: React.MouseEvent, id: string, number: string) {
     e.stopPropagation()
@@ -161,7 +157,7 @@ export function QuotesPage() {
         )}
       </div>
 
-      <QuoteForm open={formOpen} onClose={() => setFormOpen(false)} onSubmit={handleAdd} />
+      <QuoteForm open={formOpen} onClose={() => setFormOpen(false)} onCreated={(id) => navigate(`/quotes/${id}`)} />
     </div>
   )
 }

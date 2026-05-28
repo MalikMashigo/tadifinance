@@ -71,6 +71,17 @@ export async function deleteQuote(id: string): Promise<void> {
   if (error) throw new Error(error.message)
 }
 
+export async function createQuoteItems(payloads: QuoteItemInsert[]): Promise<void> {
+  if (payloads.length === 0) return
+  const rows = payloads.map((p) => ({
+    ...p,
+    line_total: Math.round(p.quantity * p.unit_price * 100) / 100,
+  }))
+  const { error } = await supabase.from('quote_items').insert(rows)
+  if (error) throw new Error(error.message)
+  await recalcQuoteTotals(payloads[0].quote_id)
+}
+
 export async function fetchQuoteItems(quoteId: string): Promise<QuoteItem[]> {
   const { data, error } = await supabase
     .from('quote_items')

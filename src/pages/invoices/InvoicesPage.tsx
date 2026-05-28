@@ -34,7 +34,7 @@ export const INVOICE_STATUS_MAP: Record<InvoiceStatus, { label: string; colour: 
 export function InvoicesPage() {
   const { openSidebar } = useOutletContext<OutletCtx>()
   const navigate = useNavigate()
-  const { invoices, loading, error, reload, addInvoice, removeInvoice } = useInvoices()
+  const { invoices, loading, error, reload, removeInvoice } = useInvoices()
 
   const [formOpen, setFormOpen] = useState(false)
   const [uploadOpen, setUploadOpen] = useState(false)
@@ -188,7 +188,7 @@ export function InvoicesPage() {
         )}
       </div>
 
-      <InvoiceForm open={formOpen} onClose={() => setFormOpen(false)} onSubmit={addInvoice} />
+      <InvoiceForm open={formOpen} onClose={() => setFormOpen(false)} onSaved={reload} />
 
       <InvoiceUploadModal
         open={uploadOpen}
