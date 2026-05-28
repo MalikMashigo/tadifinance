@@ -8,10 +8,10 @@ export interface BankingDetails {
 }
 
 const DEFAULTS: BankingDetails = {
-  bankName: '',
-  accountName: 'TADI wa NASHE',
-  accountNumber: '',
-  branchCode: '',
+  bankName: 'Standard Bank',
+  accountName: 'Tadiwanashe Karen Kaparipari',
+  accountNumber: '025024396',
+  branchCode: '1842',
 }
 
 export function getBankingDetails(): BankingDetails {
