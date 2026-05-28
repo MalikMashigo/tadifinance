@@ -10,7 +10,7 @@ import {
   deleteInvoice,
   fetchOrderItems,
   fetchInvoiceItems,
-  createInvoiceItem,
+  createInvoiceItems,
   deleteInvoiceItem,
   type InvoiceItemInsert,
 } from '../../lib/invoices'
@@ -110,8 +110,8 @@ export function InvoiceDetailPage() {
     await generateInvoicePDF(invoice, pdfItems(), payments)
   }
 
-  async function handleAddItem(data: InvoiceItemInsert) {
-    await createInvoiceItem(data)
+  async function handleAddItem(items: InvoiceItemInsert[]) {
+    await createInvoiceItems(items)
     await Promise.all([loadItems(), reload()])
   }
 

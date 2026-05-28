@@ -31,6 +31,17 @@ export async function createInvoiceItem(payload: InvoiceItemInsert): Promise<Inv
   return data as InvoiceItem
 }
 
+export async function createInvoiceItems(payloads: InvoiceItemInsert[]): Promise<void> {
+  if (payloads.length === 0) return
+  const rows = payloads.map((p) => ({
+    ...p,
+    line_total: Math.round(p.quantity * p.unit_price * 100) / 100,
+  }))
+  const { error } = await supabase.from('invoice_items').insert(rows)
+  if (error) throw new Error(error.message)
+  await recalcInvoiceTotals(payloads[0].invoice_id)
+}
+
 export async function deleteInvoiceItem(itemId: string, invoiceId: string): Promise<void> {
   const { error } = await supabase.from('invoice_items').delete().eq('id', itemId)
   if (error) throw new Error(error.message)
