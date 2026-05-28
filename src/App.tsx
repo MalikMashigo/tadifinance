@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { AppLayout } from './components/layout/AppLayout'
 import { IntroScreen } from './pages/intro/IntroScreen'
@@ -15,6 +16,14 @@ import { ExpensesPage } from './pages/expenses/ExpensesPage'
 import { ReportsPage } from './pages/reports/ReportsPage'
 
 export default function App() {
+  useEffect(() => {
+    const loader = document.getElementById('app-loader')
+    if (!loader) return
+    loader.classList.add('fade-out')
+    const t = setTimeout(() => loader.remove(), 400)
+    return () => clearTimeout(t)
+  }, [])
+
   return (
     <BrowserRouter>
       <Routes>
