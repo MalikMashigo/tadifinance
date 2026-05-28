@@ -1113,6 +1113,11 @@ img { display: block; max-width: 100%; }
   background-attachment: fixed;
 }
 
+.clients-page .filter-pill {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
 .client-list {
   display: flex;
   flex-direction: column;
