@@ -12,7 +12,8 @@ import {
 import { formatCurrency } from '../../utils/format'
 import type { ExpenseCategory, ExpenseSubsection, ExpenseUnitType } from '../../types/database'
 
-interface ItemDraft {
+// ── Full item (non-shoots subsections) ────────────────────────────────────────
+interface FullItem {
   category: ExpenseCategory
   description: string
   unitType: ExpenseUnitType
@@ -21,84 +22,96 @@ interface ItemDraft {
   supplier: string
 }
 
+// ── Simple item (shoots — just description + cost) ────────────────────────────
+interface SimpleItem {
+  description: string
+  amount: string
+}
+
 const UNIT_LABELS: Record<ExpenseUnitType, { qty: string; price: string }> = {
   unit:  { qty: 'Quantity',  price: 'Price each (R)'      },
   metre: { qty: 'Metres',    price: 'Price per metre (R)' },
   hour:  { qty: 'Hours',     price: 'Rate per hour (R)'   },
 }
 
-function newItem(category: ExpenseCategory = 'fabric'): ItemDraft {
-  return {
-    category,
-    description: '',
-    unitType: DEFAULT_UNIT_TYPES[category],
-    qty: '',
-    price: '',
-    supplier: '',
-  }
+function newFull(category: ExpenseCategory = 'fabric'): FullItem {
+  return { category, description: '', unitType: DEFAULT_UNIT_TYPES[category], qty: '', price: '', supplier: '' }
 }
 
-function itemAmount(item: ItemDraft): number {
+function newSimple(): SimpleItem {
+  return { description: '', amount: '' }
+}
+
+function fullAmount(item: FullItem): number {
   const qty   = parseFloat(item.qty)
   const price = parseFloat(item.price)
   if (isNaN(qty) || isNaN(price)) return 0
   return Math.round(qty * price * 100) / 100
 }
 
-interface ExpenseLogFormProps {
+interface Props {
   open: boolean
   subsection: ExpenseSubsection
   onClose: () => void
   onSaved: () => void
 }
 
-export function ExpenseLogForm({ open, subsection, onClose, onSaved }: ExpenseLogFormProps) {
-  const [logDate, setLogDate]           = useState(() => new Date().toISOString().slice(0, 10))
-  const [referenceName, setRef]         = useState('')
-  const [notes, setNotes]               = useState('')
-  const [items, setItems]               = useState<ItemDraft[]>([newItem()])
-  const [saving, setSaving]             = useState(false)
-  const [error, setError]               = useState<string | null>(null)
+export function ExpenseLogForm({ open, subsection, onClose, onSaved }: Props) {
+  const isSimple = subsection === 'shoots'
 
-  function addItem() {
-    setItems((prev) => [...prev, newItem()])
+  const [logDate, setLogDate]   = useState(() => new Date().toISOString().slice(0, 10))
+  const [referenceName, setRef] = useState('')
+  const [notes, setNotes]       = useState('')
+  const [fullItems, setFull]    = useState<FullItem[]>([newFull()])
+  const [simpleItems, setSimple]= useState<SimpleItem[]>([newSimple()])
+  const [saving, setSaving]     = useState(false)
+  const [error, setError]       = useState<string | null>(null)
+
+  // ── Full item helpers ──────────────────────────────────────────────────────
+  function addFull() { setFull((p) => [...p, newFull()]) }
+  function removeFull(idx: number) { setFull((p) => p.filter((_, i) => i !== idx)) }
+  function updateFull<K extends keyof FullItem>(idx: number, field: K, value: FullItem[K]) {
+    setFull((p) => p.map((item, i) => {
+      if (i !== idx) return item
+      const updated = { ...item, [field]: value }
+      if (field === 'category') updated.unitType = DEFAULT_UNIT_TYPES[value as ExpenseCategory]
+      return updated
+    }))
   }
 
-  function removeItem(idx: number) {
-    setItems((prev) => prev.filter((_, i) => i !== idx))
+  // ── Simple item helpers ────────────────────────────────────────────────────
+  function addSimple() { setSimple((p) => [...p, newSimple()]) }
+  function removeSimple(idx: number) { setSimple((p) => p.filter((_, i) => i !== idx)) }
+  function updateSimple<K extends keyof SimpleItem>(idx: number, field: K, value: SimpleItem[K]) {
+    setSimple((p) => p.map((item, i) => i === idx ? { ...item, [field]: value } : item))
   }
 
-  function updateItem<K extends keyof ItemDraft>(idx: number, field: K, value: ItemDraft[K]) {
-    setItems((prev) =>
-      prev.map((item, i) => {
-        if (i !== idx) return item
-        const updated = { ...item, [field]: value }
-        // auto-switch unit type when category changes
-        if (field === 'category') {
-          updated.unitType = DEFAULT_UNIT_TYPES[value as ExpenseCategory]
-        }
-        return updated
-      })
-    )
-  }
-
-  const runningTotal = items.reduce((s, item) => s + itemAmount(item), 0)
+  const runningTotal = isSimple
+    ? simpleItems.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0)
+    : fullItems.reduce((s, i) => s + fullAmount(i), 0)
 
   async function handleSubmit(e: { preventDefault(): void }) {
     e.preventDefault()
+    setError(null)
 
-    // Validate all items
-    for (const item of items) {
-      if (!item.description.trim()) { setError('Every item needs a description.'); return }
-      const qty   = parseFloat(item.qty)
-      const price = parseFloat(item.price)
-      if (isNaN(qty) || qty <= 0)    { setError('Enter a valid quantity for all items.'); return }
-      if (isNaN(price) || price < 0) { setError('Enter a valid price for all items.'); return }
+    if (isSimple) {
+      for (const item of simpleItems) {
+        if (!item.description.trim()) { setError('Every item needs a description.'); return }
+        if (isNaN(parseFloat(item.amount)) || parseFloat(item.amount) < 0) {
+          setError('Enter a valid amount for all items.'); return
+        }
+      }
+    } else {
+      for (const item of fullItems) {
+        if (!item.description.trim()) { setError('Every item needs a description.'); return }
+        const qty   = parseFloat(item.qty)
+        const price = parseFloat(item.price)
+        if (isNaN(qty) || qty <= 0)    { setError('Enter a valid quantity for all items.'); return }
+        if (isNaN(price) || price < 0) { setError('Enter a valid price for all items.'); return }
+      }
     }
 
     setSaving(true)
-    setError(null)
-
     try {
       const payload: ExpenseLogInsert = {
         subsection,
@@ -108,24 +121,35 @@ export function ExpenseLogForm({ open, subsection, onClose, onSaved }: ExpenseLo
         total_amount: runningTotal,
       }
 
-      const itemPayloads = items.map((item) => ({
-        category:      item.category,
-        description:   item.description.trim(),
-        unit_type:     item.unitType,
-        unit_quantity: parseFloat(item.qty),
-        unit_price:    parseFloat(item.price),
-        amount:        itemAmount(item),
-        supplier:      item.supplier.trim() || null,
-        notes:         null as string | null,
-      }))
+      const itemPayloads = isSimple
+        ? simpleItems.map((item) => ({
+            category:      'accessories' as ExpenseCategory,
+            description:   item.description.trim(),
+            unit_type:     'unit' as ExpenseUnitType,
+            unit_quantity: null as number | null,
+            unit_price:    null as number | null,
+            amount:        parseFloat(item.amount),
+            supplier:      null as string | null,
+            notes:         null as string | null,
+          }))
+        : fullItems.map((item) => ({
+            category:      item.category,
+            description:   item.description.trim(),
+            unit_type:     item.unitType,
+            unit_quantity: parseFloat(item.qty),
+            unit_price:    parseFloat(item.price),
+            amount:        fullAmount(item),
+            supplier:      item.supplier.trim() || null,
+            notes:         null as string | null,
+          }))
 
       await createExpenseLog(payload, itemPayloads)
 
-      // Reset form
       setLogDate(new Date().toISOString().slice(0, 10))
       setRef('')
       setNotes('')
-      setItems([newItem()])
+      setFull([newFull()])
+      setSimple([newSimple()])
       onSaved()
       onClose()
     } catch (e) {
@@ -143,7 +167,6 @@ export function ExpenseLogForm({ open, subsection, onClose, onSaved }: ExpenseLo
       width="md"
     >
       <form onSubmit={handleSubmit} className="form">
-        {/* Log header */}
         <div className="form__grid form__grid--2">
           <Field label="Date" required>
             <Input
@@ -158,39 +181,84 @@ export function ExpenseLogForm({ open, subsection, onClose, onSaved }: ExpenseLo
               value={referenceName}
               onChange={(e) => setRef(e.target.value)}
               placeholder={
-                subsection === 'clients'    ? 'e.g. Naledi Dlamini' :
-                subsection === 'collections' ? 'e.g. SS25 Collection' :
-                subsection === 'shoots'     ? 'e.g. Lookbook shoot' :
-                subsection === 'cmt'        ? 'e.g. Factory run' :
-                subsection === 'passion_projects' ? 'e.g. Project name' :
+                subsection === 'clients'         ? 'e.g. Naledi Dlamini' :
+                subsection === 'collections'     ? 'e.g. SS25 Collection' :
+                subsection === 'shoots'          ? 'e.g. Lookbook shoot' :
+                subsection === 'cmt'             ? 'e.g. Factory run' :
+                subsection === 'passion_projects'? 'e.g. Project name' :
                 'Optional label'
               }
             />
           </Field>
         </div>
 
-        {/* Items */}
         <div className="expense-items-section">
           <div className="expense-items-section__head">
             <span className="expense-items-section__label">Items</span>
-            <button type="button" className="btn btn--secondary btn--sm" onClick={addItem}>
+            <button
+              type="button"
+              className="btn btn--secondary btn--sm"
+              onClick={isSimple ? addSimple : addFull}
+            >
               <Plus size={13} />
               Add item
             </button>
           </div>
 
-          {items.map((item, idx) => {
+          {/* ── Simple mode (Shoots) ── */}
+          {isSimple && simpleItems.map((item, idx) => (
+            <div key={idx} className="expense-item-block">
+              <div className="expense-item-block__header">
+                <span className="expense-item-block__num">Item {idx + 1}</span>
+                {simpleItems.length > 1 && (
+                  <button
+                    type="button"
+                    className="expense-item-block__remove"
+                    onClick={() => removeSimple(idx)}
+                    aria-label="Remove item"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+
+              <Field label="What is this expense for?" required>
+                <Input
+                  value={item.description}
+                  onChange={(e) => updateSimple(idx, 'description', e.target.value)}
+                  placeholder="e.g. Photographer fee, Studio hire, Props…"
+                  required
+                  autoFocus={idx === 0}
+                />
+              </Field>
+
+              <Field label="Cost (R)" required>
+                <Input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={item.amount}
+                  onChange={(e) => updateSimple(idx, 'amount', e.target.value)}
+                  placeholder="0.00"
+                  required
+                />
+              </Field>
+            </div>
+          ))}
+
+          {/* ── Full mode (all other subsections) ── */}
+          {!isSimple && fullItems.map((item, idx) => {
             const labels = UNIT_LABELS[item.unitType]
-            const lineTotal = itemAmount(item)
+            const lineTotal = fullAmount(item)
             return (
               <div key={idx} className="expense-item-block">
                 <div className="expense-item-block__header">
                   <span className="expense-item-block__num">Item {idx + 1}</span>
-                  {items.length > 1 && (
+                  {fullItems.length > 1 && (
                     <button
                       type="button"
                       className="expense-item-block__remove"
-                      onClick={() => removeItem(idx)}
+                      onClick={() => removeFull(idx)}
                       aria-label="Remove item"
                     >
                       <X size={14} />
@@ -202,18 +270,17 @@ export function ExpenseLogForm({ open, subsection, onClose, onSaved }: ExpenseLo
                   <Field label="Category">
                     <Select
                       value={item.category}
-                      onChange={(e) => updateItem(idx, 'category', e.target.value as ExpenseCategory)}
+                      onChange={(e) => updateFull(idx, 'category', e.target.value as ExpenseCategory)}
                     >
                       {(Object.entries(CATEGORY_LABELS) as [ExpenseCategory, string][]).map(([val, label]) => (
                         <option key={val} value={val}>{label}</option>
                       ))}
                     </Select>
                   </Field>
-
                   <Field label="Priced by">
                     <Select
                       value={item.unitType}
-                      onChange={(e) => updateItem(idx, 'unitType', e.target.value as ExpenseUnitType)}
+                      onChange={(e) => updateFull(idx, 'unitType', e.target.value as ExpenseUnitType)}
                     >
                       <option value="unit">Per unit</option>
                       <option value="metre">Per metre</option>
@@ -225,7 +292,7 @@ export function ExpenseLogForm({ open, subsection, onClose, onSaved }: ExpenseLo
                 <Field label="Description" required>
                   <Input
                     value={item.description}
-                    onChange={(e) => updateItem(idx, 'description', e.target.value)}
+                    onChange={(e) => updateFull(idx, 'description', e.target.value)}
                     placeholder={
                       item.category === 'fabric'      ? 'e.g. Duchess satin, ivory' :
                       item.category === 'trims'       ? 'e.g. Gold zippers 22cm' :
@@ -244,7 +311,7 @@ export function ExpenseLogForm({ open, subsection, onClose, onSaved }: ExpenseLo
                       min={0}
                       step="any"
                       value={item.qty}
-                      onChange={(e) => updateItem(idx, 'qty', e.target.value)}
+                      onChange={(e) => updateFull(idx, 'qty', e.target.value)}
                       placeholder="0"
                       required
                     />
@@ -255,7 +322,7 @@ export function ExpenseLogForm({ open, subsection, onClose, onSaved }: ExpenseLo
                       min={0}
                       step="0.01"
                       value={item.price}
-                      onChange={(e) => updateItem(idx, 'price', e.target.value)}
+                      onChange={(e) => updateFull(idx, 'price', e.target.value)}
                       placeholder="0.00"
                       required
                     />
@@ -270,7 +337,7 @@ export function ExpenseLogForm({ open, subsection, onClose, onSaved }: ExpenseLo
                 <Field label="Supplier (optional)">
                   <Input
                     value={item.supplier}
-                    onChange={(e) => updateItem(idx, 'supplier', e.target.value)}
+                    onChange={(e) => updateFull(idx, 'supplier', e.target.value)}
                     placeholder="e.g. Fabric World, Joburg"
                   />
                 </Field>
@@ -279,7 +346,6 @@ export function ExpenseLogForm({ open, subsection, onClose, onSaved }: ExpenseLo
           })}
         </div>
 
-        {/* Notes */}
         <Field label="Notes (optional)">
           <Textarea
             value={notes}
@@ -288,7 +354,6 @@ export function ExpenseLogForm({ open, subsection, onClose, onSaved }: ExpenseLo
           />
         </Field>
 
-        {/* Running total */}
         <div className="expense-log-total">
           <span>Log total</span>
           <strong>{formatCurrency(runningTotal)}</strong>
