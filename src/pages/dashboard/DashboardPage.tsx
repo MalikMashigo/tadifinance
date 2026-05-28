@@ -194,7 +194,7 @@ export function DashboardPage() {
         {!loading && data && (data.expensesByCategory.size > 0 || data.totalExpensesThisMonth > 0) && (
           <div className="dash-panel dash-panel--wide">
             <div className="dash-panel__head">
-              <h2 className="dash-panel__title">Expenses — {monthName}</h2>
+              <h2 className="dash-panel__title">Expenses: {monthName}</h2>
               <button className="dash-panel__link" onClick={() => navigate('/expenses')}>
                 View all <ArrowRight size={13} />
               </button>

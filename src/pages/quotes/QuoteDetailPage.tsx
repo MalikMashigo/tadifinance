@@ -142,7 +142,7 @@ export function QuoteDetailPage() {
       ])
       await sendEmailWithPDF({
         to: quote.clients.email,
-        subject: `Quote ${quote.quote_number} — TADI wa NASHE`,
+        subject: `Quote ${quote.quote_number}: TADI wa NASHE`,
         html,
         pdfBase64,
         pdfFilename: `${quote.quote_number}.pdf`,

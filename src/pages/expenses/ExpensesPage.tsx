@@ -80,7 +80,7 @@ export function ExpensesPage() {
         {!loading && logs.length > 0 && (
           <div className="expense-section-banner">
             <span className="expense-section-banner__label">
-              {SUBSECTION_LABELS[subsection]} — {logs.length} {logs.length === 1 ? 'log' : 'logs'}
+              {SUBSECTION_LABELS[subsection]}: {logs.length} {logs.length === 1 ? 'log' : 'logs'}
             </span>
             <span className="expense-section-banner__total">{formatCurrency(sectionTotal)}</span>
           </div>

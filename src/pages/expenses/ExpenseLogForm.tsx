@@ -164,7 +164,7 @@ export function ExpenseLogForm({ open, subsection, onClose, onSaved }: Props) {
     <Modal
       open={open}
       onClose={onClose}
-      title={`Log expense — ${SUBSECTION_LABELS[subsection]}`}
+      title={`Log expense: ${SUBSECTION_LABELS[subsection]}`}
       width="md"
     >
       <form onSubmit={handleSubmit} className="form">

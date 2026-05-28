@@ -21,7 +21,7 @@ type Tab = 'preview' | 'edit'
 export function SendInvoiceModal({ open, onClose, onSent, invoice, items, payments }: Props) {
   const [tab, setTab]         = useState<Tab>('preview')
   const [to, setTo]           = useState(invoice.clients.email ?? '')
-  const [subject, setSubject] = useState(`Invoice ${invoice.invoice_number} — TADI wa NASHE`)
+  const [subject, setSubject] = useState(`Invoice ${invoice.invoice_number}: TADI wa NASHE`)
   const [sending, setSending] = useState(false)
   const [error, setError]     = useState<string | null>(null)
   const [sent, setSent]       = useState(false)

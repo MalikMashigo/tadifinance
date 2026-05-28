@@ -177,7 +177,7 @@ export function PaymentsPage() {
               <option value="">Select an invoice…</option>
               {invoices.map((inv) => (
                 <option key={inv.id} value={inv.id}>
-                  {inv.invoice_number} — {inv.clients.full_name}
+                  {inv.invoice_number}: {inv.clients.full_name}
                   {inv.status === 'paid'
                     ? ` (paid · ${formatCurrency(inv.total_amount)})`
                     : ` (${formatCurrency(inv.balance_due > 0 ? inv.balance_due : inv.total_amount)} due)`}

@@ -253,7 +253,7 @@ export function InvoiceUploadModal({ open, onClose, onImported }: Props) {
           {file && (
             <div className="upload-source-badge">
               <CheckCircle2 size={14} />
-              <span>Data extracted from <strong>{file.name}</strong> — review and confirm below.</span>
+              <span>Data extracted from <strong>{file.name}</strong>: review and confirm below.</span>
             </div>
           )}
 
@@ -311,7 +311,7 @@ export function InvoiceUploadModal({ open, onClose, onImported }: Props) {
                 </div>
               )}
               {!selectedClient && clientQuery.length >= 2 && clientMatches.length === 0 && (
-                <p className="upload-client-hint">No existing client found — will create "{clientQuery}"</p>
+                <p className="upload-client-hint">No existing client found: will create "{clientQuery}"</p>
               )}
             </div>
           </Field>

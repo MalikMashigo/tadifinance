@@ -102,10 +102,10 @@ export function InvoiceForm({ open, onClose, onSubmit, preselectedOrderId, prese
         {clientId && (
           <Field label="Link to order (optional)">
             <Select value={orderId} onChange={(e) => setOrderId(e.target.value)}>
-              <option value="">No order — standalone invoice</option>
+              <option value="">No order: standalone invoice</option>
               {orders.map((o) => (
                 <option key={o.id} value={o.id}>
-                  {o.order_number}{o.collection_name ? ` — ${o.collection_name}` : ''}
+                  {o.order_number}{o.collection_name ? `: ${o.collection_name}` : ''}
                 </option>
               ))}
             </Select>

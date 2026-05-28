@@ -121,7 +121,7 @@ export function OrdersPage() {
                   <span className="order-row__number">{order.order_number}</span>
                   <span className="order-row__client">{order.clients.full_name}</span>
                   <span className="order-row__type">
-                    {TYPE_LABELS[order.order_type]}{order.collection_name ? ` — ${order.collection_name}` : ''}
+                    {TYPE_LABELS[order.order_type]}{order.collection_name ? `: ${order.collection_name}` : ''}
                   </span>
                 </div>
                 <div className="order-row__right">

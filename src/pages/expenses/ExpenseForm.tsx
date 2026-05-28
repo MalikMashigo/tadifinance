@@ -142,10 +142,10 @@ export function ExpenseForm({ open, onClose, onSubmit, initial, preselectedOrder
 
         <Field label="Link to order (optional)">
           <Select value={form.order_id} onChange={(e) => set('order_id', e.target.value)}>
-            <option value="">No order — general overhead</option>
+            <option value="">No order: general overhead</option>
             {orders.map((o) => (
               <option key={o.id} value={o.id}>
-                {o.order_number}{o.collection_name ? ` — ${o.collection_name}` : ''}
+                {o.order_number}{o.collection_name ? `: ${o.collection_name}` : ''}
               </option>
             ))}
           </Select>
