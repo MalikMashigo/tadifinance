@@ -57,7 +57,7 @@ interface Props {
 }
 
 export function ExpenseLogForm({ open, subsection, onClose, onSaved }: Props) {
-  const isSimple = subsection === 'shoots'
+  const isSimple = subsection === 'shoots' || subsection === 'studio'
 
   const [logDate, setLogDate]   = useState(() => new Date().toISOString().slice(0, 10))
   const [referenceName, setRef] = useState('')
