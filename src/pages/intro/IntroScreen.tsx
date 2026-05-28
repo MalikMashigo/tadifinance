@@ -8,7 +8,7 @@ const PHOTOS = [
   { src: '/images/tadi3.jpeg', caption: 'Editorial · TADI wa NASHE 2025' },
 ]
 
-const SLIDE_MS = 1000
+const SLIDE_MS = 10000
 const LOGO_MS  = 1000
 const FLY_MS   = 850
 
