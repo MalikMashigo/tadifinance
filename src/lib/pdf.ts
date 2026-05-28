@@ -467,6 +467,14 @@ export async function generateQuotePDF(
   doc.save(`${quote.quote_number}.pdf`)
 }
 
+export async function getQuotePDFBlob(
+  quote: QuoteWithClient,
+  items: QuoteItem[],
+): Promise<Blob> {
+  const doc = await buildQuoteDoc(quote, items)
+  return new Blob([doc.output('arraybuffer')], { type: 'application/pdf' })
+}
+
 export function buildEmailBody(invoice: InvoiceWithClient, items: OrderItem[]): string {
   const itemRows = items.length > 0
     ? items.map((i) =>

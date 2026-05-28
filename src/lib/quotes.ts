@@ -60,7 +60,7 @@ export async function createQuote(payload: QuoteInsert): Promise<Quote> {
 
 export async function updateQuote(
   id: string,
-  payload: Partial<QuoteInsert & { status: QuoteStatus }>,
+  payload: Partial<QuoteInsert & { status: QuoteStatus; sent_at: string | null }>,
 ): Promise<void> {
   const { error } = await supabase.from('quotes').update(payload).eq('id', id)
   if (error) throw new Error(error.message)

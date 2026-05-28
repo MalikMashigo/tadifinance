@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Pencil, Trash2, Plus, X, Download, Mail } from 'lucide-react'
+import { ArrowLeft, Pencil, Trash2, Plus, X, Download, Send } from 'lucide-react'
 import { StatusBadge } from '../../components/ui/Badge'
 import { QuoteForm } from './QuoteForm'
 import { QuoteItemForm } from './QuoteItemForm'
@@ -15,10 +15,13 @@ import {
   type QuoteInsert,
   type QuoteItemInsert,
 } from '../../lib/quotes'
-import { generateQuotePDF } from '../../lib/pdf'
+import { generateQuotePDF, getQuotePDFBlob } from '../../lib/pdf'
 import { formatCurrency, formatDate, VAT_RATE } from '../../utils/format'
 import type { QuoteItem, QuoteStatus } from '../../types/database'
 import { QUOTE_STATUS_MAP } from './QuotesPage'
+
+type FxCurrency = 'USD' | 'GBP' | 'EUR'
+const FX_SYMBOLS: Record<FxCurrency, string> = { USD: '$', GBP: '£', EUR: '€' }
 
 const STATUS_OPTIONS: { value: QuoteStatus; label: string }[] = [
   { value: 'draft',    label: 'Draft'    },
@@ -31,14 +34,20 @@ export function QuoteDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
 
-  const [quote, setQuote]   = useState<QuoteWithClient | null>(null)
-  const [items, setItems]   = useState<QuoteItem[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError]   = useState<string | null>(null)
-  const [editOpen, setEditOpen]     = useState(false)
+  const [quote, setQuote]       = useState<QuoteWithClient | null>(null)
+  const [items, setItems]       = useState<QuoteItem[]>([])
+  const [loading, setLoading]   = useState(true)
+  const [error, setError]       = useState<string | null>(null)
+  const [editOpen, setEditOpen] = useState(false)
   const [itemFormOpen, setItemFormOpen] = useState(false)
-  const [deleting, setDeleting]     = useState(false)
-  const [pdfLoading, setPdfLoading] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [sending, setSending]   = useState(false)
+
+  // Currency conversion
+  const [fxCurrency, setFxCurrency] = useState<FxCurrency | 'ZAR'>('ZAR')
+  const [fxRate, setFxRate]         = useState<number | null>(null)
+  const [fxLoading, setFxLoading]   = useState(false)
+  const [fxError, setFxError]       = useState<string | null>(null)
 
   const load = useCallback(async () => {
     if (!id) return
@@ -55,6 +64,27 @@ export function QuoteDetailPage() {
   }, [id])
 
   useEffect(() => { load() }, [load])
+
+  useEffect(() => {
+    if (fxCurrency === 'ZAR') { setFxRate(null); setFxError(null); return }
+    setFxLoading(true)
+    setFxError(null)
+    fetch(`https://api.frankfurter.app/latest?from=ZAR&to=${fxCurrency}`)
+      .then((r) => r.json())
+      .then((data) => {
+        const rate = data?.rates?.[fxCurrency]
+        if (typeof rate === 'number') setFxRate(rate)
+        else setFxError('Could not load rate')
+      })
+      .catch(() => setFxError('Could not load rate'))
+      .finally(() => setFxLoading(false))
+  }, [fxCurrency])
+
+  function fxFormat(zarAmount: number): string {
+    if (!fxRate || fxCurrency === 'ZAR') return formatCurrency(zarAmount)
+    const symbol = FX_SYMBOLS[fxCurrency]
+    return `${symbol}${(zarAmount * fxRate).toFixed(2)}`
+  }
 
   async function handleDelete() {
     if (!quote) return
@@ -73,6 +103,10 @@ export function QuoteDetailPage() {
     if (!quote) return
     await updateQuote(quote.id, { status })
     setQuote((q) => q ? { ...q, status } : q)
+    // Mark as sent when status changes to sent
+    if (status === 'sent') {
+      await updateQuote(quote.id, { status, sent_at: new Date().toISOString() })
+    }
   }
 
   async function handleEdit(data: QuoteInsert) {
@@ -92,32 +126,66 @@ export function QuoteDetailPage() {
     await load()
   }
 
-  async function handleDownloadPDF() {
+  async function handleSend() {
     if (!quote) return
-    setPdfLoading(true)
+    setSending(true)
     try {
-      await generateQuotePDF(quote, items)
-    } finally {
-      setPdfLoading(false)
-    }
-  }
+      const blob = await getQuotePDFBlob(quote, items)
+      const filename = `${quote.quote_number}.pdf`
+      const file = new File([blob], filename, { type: 'application/pdf' })
 
-  function handleEmailGmail() {
-    if (!quote) return
-    const subject = encodeURIComponent(`Quote ${quote.quote_number} — TADI wa NASHE`)
-    const body = encodeURIComponent(
-      `Dear ${quote.clients.full_name},\n\nPlease find your quote attached (${quote.quote_number}).\n\nTotal: ${formatCurrency(quote.total_amount)}\n\nKind regards,\nTadiwanashe\nTADI wa NASHE\n+27 73 928 0572`
-    )
-    const to = quote.clients.email ? encodeURIComponent(quote.clients.email) : ''
-    const url = `https://mail.google.com/mail/?view=cm&fs=1${to ? `&to=${to}` : ''}&su=${subject}&body=${body}`
-    window.open(url, '_blank')
+      // Try Web Share API first — attaches the PDF natively
+      const canShare =
+        typeof navigator.share === 'function' &&
+        typeof navigator.canShare === 'function' &&
+        navigator.canShare({ files: [file] })
+
+      if (canShare) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: `Quote ${quote.quote_number} — TADI wa NASHE`,
+            text: `Dear ${quote.clients.full_name},\n\nPlease find your quote attached.\n\nKind regards,\nTadiwanashe`,
+          })
+          // Auto-advance status to 'sent'
+          if (quote.status === 'draft') await handleStatusChange('sent')
+          return
+        } catch (e) {
+          if ((e as Error).name === 'AbortError') return
+        }
+      }
+
+      // Fallback: download PDF + open Gmail compose
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+
+      const to      = quote.clients.email ? encodeURIComponent(quote.clients.email) : ''
+      const subject = encodeURIComponent(`Quote ${quote.quote_number} — TADI wa NASHE`)
+      const body    = encodeURIComponent(
+        `Dear ${quote.clients.full_name},\n\nPlease find your quote ${quote.quote_number} attached.\n\nTotal: ${formatCurrency(total)}\n\nKind regards,\nTadiwanashe\nTADI wa NASHE\n+27 73 928 0572`
+      )
+      window.open(
+        `https://mail.google.com/mail/?view=cm&fs=1${to ? `&to=${to}` : ''}&su=${subject}&body=${body}`,
+        '_blank'
+      )
+
+      if (quote.status === 'draft') await handleStatusChange('sent')
+    } finally {
+      setSending(false)
+    }
   }
 
   if (loading) return <div className="page"><p className="state-msg">Loading…</p></div>
   if (error || !quote) return <div className="page"><p className="state-msg state-msg--error">{error ?? 'Quote not found.'}</p></div>
 
   const subtotal = items.reduce((s, i) => s + i.line_total, 0)
-  const vat = Math.round(subtotal * VAT_RATE * 100) / 100
+  const vat   = Math.round(subtotal * VAT_RATE * 100) / 100
   const total = subtotal + vat
 
   return (
@@ -130,15 +198,14 @@ export function QuoteDetailPage() {
         <div className="detail-header__actions">
           <button
             className="btn btn--secondary"
-            onClick={handleDownloadPDF}
-            disabled={pdfLoading}
+            onClick={() => { if (quote) generateQuotePDF(quote, items) }}
           >
             <Download size={15} />
-            {pdfLoading ? 'Generating…' : 'Download PDF'}
+            PDF
           </button>
-          <button className="btn btn--secondary" onClick={handleEmailGmail}>
-            <Mail size={15} />
-            Send via Gmail
+          <button className="btn btn--secondary" onClick={handleSend} disabled={sending}>
+            <Send size={15} />
+            {sending ? 'Preparing…' : 'Send'}
           </button>
           <button className="btn btn--secondary" onClick={() => setEditOpen(true)}>
             <Pencil size={15} />
@@ -153,29 +220,41 @@ export function QuoteDetailPage() {
 
       <div className="page__content">
         {/* Quote header card */}
-        <div className="detail-card">
-          <div className="detail-card__info" style={{ width: '100%' }}>
-            <div className="order-detail__title-row">
-              <div>
-                <h2 className="detail-card__name">{quote.quote_number}</h2>
-                <div className="detail-meta">
-                  <span>{quote.clients.full_name}</span>
-                  <span>Issued {formatDate(quote.issue_date)}</span>
-                </div>
+        <div className="invoice-header-card">
+          <div className="invoice-header-card__top">
+            <div>
+              <h2 className="invoice-header-card__number">{quote.quote_number}</h2>
+              <div className="detail-meta">
+                <span className="detail-meta__link"
+                  style={{ cursor: 'default' }}>{quote.clients.full_name}</span>
+                {quote.clients.email && <span>{quote.clients.email}</span>}
+                {quote.clients.phone && <span>{quote.clients.phone}</span>}
               </div>
-              <StatusBadge status={quote.status} map={QUOTE_STATUS_MAP} />
             </div>
-            {quote.notes && (
-              <p className="order-detail__description">{quote.notes}</p>
+            <StatusBadge status={quote.status} map={QUOTE_STATUS_MAP} />
+          </div>
+
+          <div className="invoice-header-card__dates">
+            <div className="invoice-date-pill">
+              <span className="invoice-date-pill__label">Issued</span>
+              <span className="invoice-date-pill__value">{formatDate(quote.issue_date)}</span>
+            </div>
+            {quote.sent_at && (
+              <div className="invoice-date-pill">
+                <span className="invoice-date-pill__label">Sent</span>
+                <span className="invoice-date-pill__value">{formatDate(quote.sent_at)}</span>
+              </div>
             )}
           </div>
+
+          {quote.notes && (
+            <p className="detail-card__notes" style={{ marginTop: '0.75rem' }}>{quote.notes}</p>
+          )}
         </div>
 
-        {/* Status selector */}
+        {/* Status */}
         <section className="detail-section">
-          <div className="detail-section__heading">
-            <h3>Status</h3>
-          </div>
+          <div className="detail-section__heading"><h3>Status</h3></div>
           <div className="filter-pills">
             {STATUS_OPTIONS.map((opt) => (
               <button
@@ -238,6 +317,7 @@ export function QuoteDetailPage() {
                 ))}
               </div>
 
+              {/* Totals */}
               <div className="order-totals">
                 <div className="order-totals__row">
                   <span>Subtotal</span>
@@ -251,6 +331,48 @@ export function QuoteDetailPage() {
                   <span>Total</span>
                   <span>{formatCurrency(total)}</span>
                 </div>
+              </div>
+
+              {/* Currency converter */}
+              <div className="fx-converter">
+                <div className="fx-converter__toggle">
+                  <span className="fx-converter__label">View in</span>
+                  <select
+                    className="fx-converter__select"
+                    value={fxCurrency}
+                    onChange={(e) => setFxCurrency(e.target.value as FxCurrency | 'ZAR')}
+                  >
+                    <option value="ZAR">ZAR (South African Rand)</option>
+                    <option value="USD">USD (US Dollar)</option>
+                    <option value="GBP">GBP (British Pound)</option>
+                    <option value="EUR">EUR (Euro)</option>
+                  </select>
+                </div>
+
+                {fxCurrency !== 'ZAR' && (
+                  <div className="fx-converter__panel">
+                    {fxLoading && <p className="fx-converter__status">Fetching rate…</p>}
+                    {fxError  && <p className="fx-converter__status fx-converter__status--error">{fxError}</p>}
+                    {fxRate && !fxLoading && (
+                      <>
+                        <p className="fx-converter__rate">
+                          1 ZAR = {FX_SYMBOLS[fxCurrency]}{fxRate.toFixed(4)} {fxCurrency}
+                        </p>
+                        <div className="fx-totals">
+                          <div className="fx-totals__row">
+                            <span>Subtotal</span><span>{fxFormat(subtotal)}</span>
+                          </div>
+                          <div className="fx-totals__row">
+                            <span>VAT</span><span>{fxFormat(vat)}</span>
+                          </div>
+                          <div className="fx-totals__row fx-totals__row--total">
+                            <span>Total</span><span>{fxFormat(total)}</span>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             </>
           )}
