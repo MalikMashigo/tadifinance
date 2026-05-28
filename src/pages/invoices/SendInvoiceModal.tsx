@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { Send, Download, Eye, Edit2, Loader } from 'lucide-react'
 import { Modal } from '../../components/ui/Modal'
 import { buildEmailBody, getInvoicePDFBase64, generateInvoicePDF } from '../../lib/pdf'
-import { sendInvoiceEmail } from '../../lib/email'
+import { sendEmailWithPDF } from '../../lib/email'
 import { formatCurrency, formatDate } from '../../utils/format'
 import type { InvoiceWithClient } from '../../lib/invoices'
 import type { OrderItem, Payment } from '../../types/database'
@@ -34,7 +34,7 @@ export function SendInvoiceModal({ open, onClose, onSent, invoice, items, paymen
     setSending(true)
     try {
       const pdfBase64 = await getInvoicePDFBase64(invoice, items, payments)
-      await sendInvoiceEmail({ to: to.trim(), subject, html: htmlBody, pdfBase64, invoiceNumber: invoice.invoice_number })
+      await sendEmailWithPDF({ to: to.trim(), subject, html: htmlBody, pdfBase64, pdfFilename: `${invoice.invoice_number}.pdf` })
       setSent(true)
       setTimeout(() => { onSent(); onClose() }, 1500)
     } catch (e) {

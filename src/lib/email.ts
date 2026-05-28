@@ -1,36 +1,19 @@
-export async function sendInvoiceEmail({
-  to,
-  subject,
-  html,
-  pdfBase64,
-  invoiceNumber,
-}: {
+export interface SendEmailPayload {
   to: string
   subject: string
   html: string
   pdfBase64: string
-  invoiceNumber: string
-}): Promise<void> {
-  const apiKey = import.meta.env.VITE_RESEND_API_KEY
-  if (!apiKey) throw new Error('VITE_RESEND_API_KEY is not set.')
+  pdfFilename: string
+}
 
-  const res = await fetch('https://api.resend.com/emails', {
+export async function sendEmailWithPDF(payload: SendEmailPayload): Promise<void> {
+  const res = await fetch('/.netlify/functions/send-email', {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      from: 'TADI wa NASHE <invoices@tadifinance.com>',
-      to: [to],
-      subject,
-      html,
-      attachments: [{ filename: `${invoiceNumber}.pdf`, content: pdfBase64 }],
-    }),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
   })
-
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error((err as { message?: string }).message ?? `Email failed (${res.status})`)
+    const err = await res.json().catch(() => ({ error: 'Failed to send email' }))
+    throw new Error((err as { error?: string }).error ?? 'Failed to send email')
   }
 }

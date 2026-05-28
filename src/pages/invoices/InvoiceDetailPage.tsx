@@ -3,9 +3,10 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { ArrowLeft, Download, Send, Plus, Trash2 } from 'lucide-react'
 import { StatusBadge } from '../../components/ui/Badge'
 import { PaymentForm } from './PaymentForm'
+import { SendInvoiceModal } from './SendInvoiceModal'
 import { useInvoice } from '../../hooks/useInvoices'
 import { deleteInvoice, fetchOrderItems } from '../../lib/invoices'
-import { generateInvoicePDF, getInvoicePDFBlob } from '../../lib/pdf'
+import { generateInvoicePDF } from '../../lib/pdf'
 import { formatCurrency, formatDate, VAT_RATE } from '../../utils/format'
 import { INVOICE_STATUS_MAP } from './InvoicesPage'
 import type { OrderItem } from '../../types/database'
@@ -20,6 +21,7 @@ export function InvoiceDetailPage() {
 
   const [orderItems, setOrderItems] = useState<OrderItem[]>([])
   const [paymentOpen, setPaymentOpen] = useState(false)
+  const [sendOpen, setSendOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
   // Currency conversion
@@ -73,50 +75,6 @@ export function InvoiceDetailPage() {
     await generateInvoicePDF(invoice, orderItems, payments)
   }
 
-  async function handleSend() {
-    if (!invoice) return
-
-    const blob = await getInvoicePDFBlob(invoice, orderItems, payments)
-    const filename = `${invoice.invoice_number}.pdf`
-    const file = new File([blob], filename, { type: 'application/pdf' })
-
-    // Try Web Share API first — attaches the PDF natively (mobile + modern desktop)
-    const canShare =
-      typeof navigator.share === 'function' &&
-      typeof navigator.canShare === 'function' &&
-      navigator.canShare({ files: [file] })
-
-    if (canShare) {
-      try {
-        await navigator.share({
-          files: [file],
-          title: `Invoice ${invoice.invoice_number} — TADI wa NASHE`,
-          text: `Hi ${invoice.clients.full_name},\n\nPlease find invoice ${invoice.invoice_number} attached.\n\nKind regards,\nTadiwanashe`,
-        })
-        return
-      } catch (e) {
-        if ((e as Error).name === 'AbortError') return  // user cancelled — do nothing
-        // other error: fall through to Gmail fallback
-      }
-    }
-
-    // Fallback: download PDF then open Gmail compose
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = filename
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-
-    const to      = encodeURIComponent(invoice.clients.email ?? '')
-    const subject = encodeURIComponent(`Invoice ${invoice.invoice_number} — TADI wa NASHE`)
-    const body    = encodeURIComponent(
-      `Hi ${invoice.clients.full_name},\n\nPlease find your invoice ${invoice.invoice_number} attached.\n\nAmount due: ${formatCurrency(invoice.balance_due)}\nDue date: ${formatDate(invoice.due_date)}\n\nKind regards,\nTadiwanashe\nTADI wa NASHE`
-    )
-    window.open(`https://mail.google.com/mail/?view=cm&fs=1&to=${to}&su=${subject}&body=${body}`, '_blank')
-  }
 
   if (loading) return <div className="page"><p className="state-msg">Loading…</p></div>
   if (error || !invoice) return <div className="page"><p className="state-msg state-msg--error">{error ?? 'Invoice not found.'}</p></div>
@@ -137,7 +95,7 @@ export function InvoiceDetailPage() {
             PDF
           </button>
           {!isPaid && (
-            <button className="btn btn--secondary" onClick={handleSend}>
+            <button className="btn btn--secondary" onClick={() => setSendOpen(true)}>
               <Send size={15} />
               Send
             </button>
@@ -369,6 +327,15 @@ export function InvoiceDetailPage() {
         onClose={() => setPaymentOpen(false)}
         onSubmit={addPayment}
         balanceDue={invoice.balance_due}
+      />
+
+      <SendInvoiceModal
+        open={sendOpen}
+        onClose={() => setSendOpen(false)}
+        onSent={() => setSendOpen(false)}
+        invoice={invoice}
+        items={orderItems}
+        payments={payments}
       />
     </div>
   )

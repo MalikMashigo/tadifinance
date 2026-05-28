@@ -459,6 +459,14 @@ export async function getInvoicePDFBase64(
   return doc.output('datauristring').split(',')[1]
 }
 
+export async function getQuotePDFBase64(
+  quote: QuoteWithClient,
+  items: QuoteItem[],
+): Promise<string> {
+  const doc = await buildQuoteDoc(quote, items)
+  return doc.output('datauristring').split(',')[1]
+}
+
 export async function generateQuotePDF(
   quote: QuoteWithClient,
   items: QuoteItem[],

@@ -15,7 +15,8 @@ import {
   type QuoteInsert,
   type QuoteItemInsert,
 } from '../../lib/quotes'
-import { generateQuotePDF, getQuotePDFBlob } from '../../lib/pdf'
+import { generateQuotePDF, getQuotePDFBase64, buildQuoteEmailBody } from '../../lib/pdf'
+import { sendEmailWithPDF } from '../../lib/email'
 import { formatCurrency, formatDate, VAT_RATE } from '../../utils/format'
 import type { QuoteItem, QuoteStatus } from '../../types/database'
 import { QUOTE_STATUS_MAP } from './QuotesPage'
@@ -128,54 +129,28 @@ export function QuoteDetailPage() {
 
   async function handleSend() {
     if (!quote) return
+    if (!quote.clients.email) {
+      alert('This client has no email address on file.')
+      return
+    }
+
     setSending(true)
     try {
-      const blob = await getQuotePDFBlob(quote, items)
-      const filename = `${quote.quote_number}.pdf`
-      const file = new File([blob], filename, { type: 'application/pdf' })
-
-      // Try Web Share API first — attaches the PDF natively
-      const canShare =
-        typeof navigator.share === 'function' &&
-        typeof navigator.canShare === 'function' &&
-        navigator.canShare({ files: [file] })
-
-      if (canShare) {
-        try {
-          await navigator.share({
-            files: [file],
-            title: `Quote ${quote.quote_number} — TADI wa NASHE`,
-            text: `Dear ${quote.clients.full_name},\n\nPlease find your quote attached.\n\nKind regards,\nTadiwanashe`,
-          })
-          // Auto-advance status to 'sent'
-          if (quote.status === 'draft') await handleStatusChange('sent')
-          return
-        } catch (e) {
-          if ((e as Error).name === 'AbortError') return
-        }
-      }
-
-      // Fallback: download PDF + open Gmail compose
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = filename
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-
-      const to      = quote.clients.email ? encodeURIComponent(quote.clients.email) : ''
-      const subject = encodeURIComponent(`Quote ${quote.quote_number} — TADI wa NASHE`)
-      const body    = encodeURIComponent(
-        `Dear ${quote.clients.full_name},\n\nPlease find your quote ${quote.quote_number} attached.\n\nTotal: ${formatCurrency(total)}\n\nKind regards,\nTadiwanashe\nTADI wa NASHE\n+27 73 928 0572`
-      )
-      window.open(
-        `https://mail.google.com/mail/?view=cm&fs=1${to ? `&to=${to}` : ''}&su=${subject}&body=${body}`,
-        '_blank'
-      )
-
+      const [pdfBase64, html] = await Promise.all([
+        getQuotePDFBase64(quote, items),
+        Promise.resolve(buildQuoteEmailBody(quote, items)),
+      ])
+      await sendEmailWithPDF({
+        to: quote.clients.email,
+        subject: `Quote ${quote.quote_number} — TADI wa NASHE`,
+        html,
+        pdfBase64,
+        pdfFilename: `${quote.quote_number}.pdf`,
+      })
+      alert(`Quote sent to ${quote.clients.email}`)
       if (quote.status === 'draft') await handleStatusChange('sent')
+    } catch (e) {
+      alert((e as Error).message)
     } finally {
       setSending(false)
     }
