@@ -191,6 +191,17 @@ export interface QuoteItem {
   created_at: string
 }
 
+export interface InvoiceItem {
+  id: string
+  invoice_id: string
+  description: string
+  quantity: number
+  unit_price: number
+  line_total: number
+  notes: string | null
+  created_at: string
+}
+
 // Joined types used across the app
 export interface InvoiceWithClient extends Invoice {
   clients: Pick<Client, 'full_name' | 'email'>

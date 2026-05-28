@@ -1,5 +1,60 @@
 import { supabase } from './supabase'
-import type { Invoice, Payment, InvoiceStatus } from '../types/database'
+import type { Invoice, InvoiceItem, Payment, InvoiceStatus } from '../types/database'
+
+export interface InvoiceItemInsert {
+  invoice_id: string
+  description: string
+  quantity: number
+  unit_price: number
+  notes: string | null
+}
+
+export async function fetchInvoiceItems(invoiceId: string): Promise<InvoiceItem[]> {
+  const { data, error } = await supabase
+    .from('invoice_items')
+    .select('*')
+    .eq('invoice_id', invoiceId)
+    .order('created_at', { ascending: true })
+  if (error) throw new Error(error.message)
+  return (data ?? []) as InvoiceItem[]
+}
+
+export async function createInvoiceItem(payload: InvoiceItemInsert): Promise<InvoiceItem> {
+  const lineTotal = Math.round(payload.quantity * payload.unit_price * 100) / 100
+  const { data, error } = await supabase
+    .from('invoice_items')
+    .insert({ ...payload, line_total: lineTotal })
+    .select()
+    .single()
+  if (error) throw new Error(error.message)
+  await recalcInvoiceTotals(payload.invoice_id)
+  return data as InvoiceItem
+}
+
+export async function deleteInvoiceItem(itemId: string, invoiceId: string): Promise<void> {
+  const { error } = await supabase.from('invoice_items').delete().eq('id', itemId)
+  if (error) throw new Error(error.message)
+  await recalcInvoiceTotals(invoiceId)
+}
+
+export async function recalcInvoiceTotals(invoiceId: string): Promise<void> {
+  const items = await fetchInvoiceItems(invoiceId)
+  const subtotal = Math.round(items.reduce((s, i) => s + i.line_total, 0) * 100) / 100
+  const vat      = Math.round(subtotal * 0.15 * 100) / 100
+  const total    = Math.round((subtotal + vat) * 100) / 100
+
+  const { data: inv } = await supabase
+    .from('invoices').select('amount_paid').eq('id', invoiceId).single()
+  const amountPaid = (inv as { amount_paid: number } | null)?.amount_paid ?? 0
+  const balanceDue = Math.max(0, total - amountPaid)
+  const status: InvoiceStatus = balanceDue === 0 && total > 0 ? 'paid' : amountPaid > 0 ? 'partially_paid' : 'sent'
+
+  const { error } = await supabase
+    .from('invoices')
+    .update({ subtotal, vat_amount: vat, total_amount: total, balance_due: balanceDue, status })
+    .eq('id', invoiceId)
+  if (error) throw new Error(error.message)
+}
 
 export type InvoiceInsert = Omit<Invoice, 'id' | 'created_at' | 'invoice_number' | 'amount_paid' | 'sent_at'>
 export type InvoiceUpdate = Partial<Omit<Invoice, 'id' | 'created_at' | 'invoice_number'>>

@@ -1,15 +1,23 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, Download, Send, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, Download, Send, Plus, Trash2, X } from 'lucide-react'
 import { StatusBadge } from '../../components/ui/Badge'
 import { PaymentForm } from './PaymentForm'
 import { SendInvoiceModal } from './SendInvoiceModal'
+import { InvoiceItemForm } from './InvoiceItemForm'
 import { useInvoice } from '../../hooks/useInvoices'
-import { deleteInvoice, fetchOrderItems } from '../../lib/invoices'
+import {
+  deleteInvoice,
+  fetchOrderItems,
+  fetchInvoiceItems,
+  createInvoiceItem,
+  deleteInvoiceItem,
+  type InvoiceItemInsert,
+} from '../../lib/invoices'
 import { generateInvoicePDF } from '../../lib/pdf'
 import { formatCurrency, formatDate, VAT_RATE } from '../../utils/format'
 import { INVOICE_STATUS_MAP } from './InvoicesPage'
-import type { OrderItem } from '../../types/database'
+import type { OrderItem, InvoiceItem } from '../../types/database'
 
 type FxCurrency = 'USD' | 'GBP' | 'EUR'
 const FX_SYMBOLS: Record<FxCurrency, string> = { USD: '$', GBP: '£', EUR: '€' }
@@ -17,24 +25,31 @@ const FX_SYMBOLS: Record<FxCurrency, string> = { USD: '$', GBP: '£', EUR: '€'
 export function InvoiceDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { invoice, payments, loading, error, addPayment, removePayment } = useInvoice(id!)
+  const { invoice, payments, loading, error, addPayment, removePayment, reload } = useInvoice(id!)
 
-  const [orderItems, setOrderItems] = useState<OrderItem[]>([])
-  const [paymentOpen, setPaymentOpen] = useState(false)
-  const [sendOpen, setSendOpen] = useState(false)
-  const [deleting, setDeleting] = useState(false)
+  const [orderItems, setOrderItems]     = useState<OrderItem[]>([])
+  const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([])
+  const [paymentOpen, setPaymentOpen]   = useState(false)
+  const [sendOpen, setSendOpen]         = useState(false)
+  const [itemFormOpen, setItemFormOpen] = useState(false)
+  const [deleting, setDeleting]         = useState(false)
 
-  // Currency conversion
   const [fxCurrency, setFxCurrency] = useState<FxCurrency | 'ZAR'>('ZAR')
-  const [fxRate, setFxRate] = useState<number | null>(null)
-  const [fxLoading, setFxLoading] = useState(false)
-  const [fxError, setFxError] = useState<string | null>(null)
+  const [fxRate, setFxRate]         = useState<number | null>(null)
+  const [fxLoading, setFxLoading]   = useState(false)
+  const [fxError, setFxError]       = useState<string | null>(null)
+
+  const loadItems = useCallback(async () => {
+    if (!id) return
+    const items = await fetchInvoiceItems(id)
+    setInvoiceItems(items)
+  }, [id])
 
   useEffect(() => {
-    if (invoice?.order_id) {
-      fetchOrderItems(invoice.order_id).then(setOrderItems).catch(() => {})
-    }
+    if (invoice?.order_id) fetchOrderItems(invoice.order_id).then(setOrderItems).catch(() => {})
   }, [invoice?.order_id])
+
+  useEffect(() => { loadItems() }, [loadItems])
 
   useEffect(() => {
     if (fxCurrency === 'ZAR') { setFxRate(null); setFxError(null); return }
@@ -70,11 +85,41 @@ export function InvoiceDetailPage() {
     }
   }
 
-  async function handleDownloadPDF() {
-    if (!invoice) return
-    await generateInvoicePDF(invoice, orderItems, payments)
+  // Map invoice items to OrderItem shape so the PDF function can render them
+  function pdfItems(): OrderItem[] {
+    if (invoiceItems.length > 0) {
+      return invoiceItems.map((i) => ({
+        id: i.id,
+        order_id: invoice!.id,
+        garment_name: i.description,
+        garment_type: null,
+        fabric: null,
+        colour: null,
+        size: null,
+        quantity: i.quantity,
+        unit_price: i.unit_price,
+        line_total: i.line_total,
+        notes: i.notes,
+      }))
+    }
+    return orderItems
   }
 
+  async function handleDownloadPDF() {
+    if (!invoice) return
+    await generateInvoicePDF(invoice, pdfItems(), payments)
+  }
+
+  async function handleAddItem(data: InvoiceItemInsert) {
+    await createInvoiceItem(data)
+    await Promise.all([loadItems(), reload()])
+  }
+
+  async function handleRemoveItem(itemId: string) {
+    if (!invoice) return
+    await deleteInvoiceItem(itemId, invoice.id)
+    await Promise.all([loadItems(), reload()])
+  }
 
   if (loading) return <div className="page"><p className="state-msg">Loading…</p></div>
   if (error || !invoice) return <div className="page"><p className="state-msg state-msg--error">{error ?? 'Invoice not found.'}</p></div>
@@ -113,7 +158,6 @@ export function InvoiceDetailPage() {
       </div>
 
       <div className="page__content">
-        {/* Invoice header */}
         <div className="invoice-header-card">
           <div className="invoice-header-card__top">
             <div>
@@ -153,9 +197,56 @@ export function InvoiceDetailPage() {
 
         {/* Line items */}
         <section className="detail-section">
-          <div className="detail-section__heading"><h3>Items</h3></div>
+          <div className="detail-section__heading">
+            <h3>Items</h3>
+            <button className="btn btn--secondary btn--sm" onClick={() => setItemFormOpen(true)}>
+              <Plus size={14} />
+              Add item
+            </button>
+          </div>
 
-          {orderItems.length > 0 ? (
+          {invoiceItems.length === 0 && orderItems.length === 0 && (
+            <div className="empty-state empty-state--sm">
+              <p>No items yet. Add items to build the invoice total.</p>
+            </div>
+          )}
+
+          {/* Manual invoice items */}
+          {invoiceItems.length > 0 && (
+            <div className="items-table">
+              <div className="items-table__head">
+                <span>Description</span>
+                <span>Notes</span>
+                <span className="items-table__num">Qty</span>
+                <span className="items-table__num">Unit price</span>
+                <span className="items-table__num">Total</span>
+                <span />
+              </div>
+              {invoiceItems.map((item) => (
+                <div key={item.id} className="items-table__row">
+                  <div className="items-table__name">
+                    <strong>{item.description}</strong>
+                  </div>
+                  <div className="items-table__details">{item.notes ?? '—'}</div>
+                  <span className="items-table__num">{item.quantity}</span>
+                  <span className="items-table__num">{formatCurrency(item.unit_price)}</span>
+                  <span className="items-table__num items-table__num--strong">
+                    {formatCurrency(item.line_total)}
+                  </span>
+                  <button
+                    className="items-table__del"
+                    onClick={() => handleRemoveItem(item.id)}
+                    aria-label="Remove item"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Order items (read-only reference, shown only when no manual items) */}
+          {invoiceItems.length === 0 && orderItems.length > 0 && (
             <div className="items-table">
               <div className="items-table__head">
                 <span>Garment</span>
@@ -181,13 +272,9 @@ export function InvoiceDetailPage() {
                 </div>
               ))}
             </div>
-          ) : (
-            <div className="empty-state empty-state--sm">
-              <p>No order linked — invoice total entered manually.</p>
-            </div>
           )}
 
-          {/* ZAR Totals */}
+          {/* Totals */}
           <div className="order-totals">
             <div className="order-totals__row">
               <span>Subtotal</span><span>{formatCurrency(invoice.subtotal)}</span>
@@ -238,26 +325,21 @@ export function InvoiceDetailPage() {
                     </p>
                     <div className="fx-totals">
                       <div className="fx-totals__row">
-                        <span>Subtotal</span>
-                        <span>{fxFormat(invoice.subtotal)}</span>
+                        <span>Subtotal</span><span>{fxFormat(invoice.subtotal)}</span>
                       </div>
                       <div className="fx-totals__row">
-                        <span>VAT</span>
-                        <span>{fxFormat(invoice.vat_amount)}</span>
+                        <span>VAT</span><span>{fxFormat(invoice.vat_amount)}</span>
                       </div>
                       <div className="fx-totals__row fx-totals__row--total">
-                        <span>Total</span>
-                        <span>{fxFormat(invoice.total_amount)}</span>
+                        <span>Total</span><span>{fxFormat(invoice.total_amount)}</span>
                       </div>
                       {invoice.amount_paid > 0 && (
                         <>
                           <div className="fx-totals__row">
-                            <span>Paid</span>
-                            <span>− {fxFormat(invoice.amount_paid)}</span>
+                            <span>Paid</span><span>− {fxFormat(invoice.amount_paid)}</span>
                           </div>
                           <div className="fx-totals__row fx-totals__row--total">
-                            <span>Balance due</span>
-                            <span>{fxFormat(invoice.balance_due)}</span>
+                            <span>Balance due</span><span>{fxFormat(invoice.balance_due)}</span>
                           </div>
                         </>
                       )}
@@ -322,6 +404,13 @@ export function InvoiceDetailPage() {
         )}
       </div>
 
+      <InvoiceItemForm
+        open={itemFormOpen}
+        invoiceId={invoice.id}
+        onClose={() => setItemFormOpen(false)}
+        onSubmit={handleAddItem}
+      />
+
       <PaymentForm
         open={paymentOpen}
         onClose={() => setPaymentOpen(false)}
@@ -334,7 +423,7 @@ export function InvoiceDetailPage() {
         onClose={() => setSendOpen(false)}
         onSent={() => setSendOpen(false)}
         invoice={invoice}
-        items={orderItems}
+        items={pdfItems()}
         payments={payments}
       />
     </div>
