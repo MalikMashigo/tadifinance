@@ -55,7 +55,8 @@ export function InvoiceDetailPage() {
     if (fxCurrency === 'ZAR') { setFxRate(null); setFxError(null); return }
     setFxLoading(true)
     setFxError(null)
-    fetch(`https://api.frankfurter.app/latest?from=ZAR&to=${fxCurrency}`)
+    // Fetch ZAR-based rates; fall back to inverting the target-currency rate if needed
+    fetch(`https://open.er-api.com/v6/latest/ZAR`)
       .then((r) => r.json())
       .then((data) => {
         const rate = data?.rates?.[fxCurrency]
