@@ -1128,7 +1128,10 @@ img { display: block; max-width: 100%; }
 .reports-page    { background-image: url('/images/tadib7.png'); }
 .clients-page    { background-image: url('/images/tadib1.png'); }
 
-.clients-page .filter-pill {
+.clients-page .filter-pill,
+.orders-page .filter-pill,
+.quotes-page .filter-pill,
+.invoices-page .filter-pill {
   color: #fff;
   border-color: rgba(255, 255, 255, 0.5);
 }
