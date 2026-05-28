@@ -2710,7 +2710,7 @@ img { display: block; max-width: 100%; }
   transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 
-.subsection-tab:hover { background: var(--colour-surface-2); color: var(--colour-ink); }
+.subsection-tab:hover { background: transparent; color: #7B1C1C; border-color: #7B1C1C; }
 
 .subsection-tab--active {
   background: transparent;
