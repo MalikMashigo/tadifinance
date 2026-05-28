@@ -1133,6 +1133,30 @@ img { display: block; max-width: 100%; }
   border-color: rgba(255, 255, 255, 0.5);
 }
 
+.expenses-page .expense-log-row {
+  background: #ffffff;
+}
+
+.expenses-page .subsection-tabs {
+  background: #ffffff;
+  border-radius: var(--radius);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--colour-border);
+}
+
+.expenses-page .toolbar {
+  background: #ffffff;
+  border-radius: var(--radius);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--colour-border);
+}
+
+.expenses-page .empty-state {
+  background: #ffffff;
+  border-radius: var(--radius);
+  border: 1px solid var(--colour-border);
+}
+
 .client-list {
   display: flex;
   flex-direction: column;
