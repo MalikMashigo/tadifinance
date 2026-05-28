@@ -19,9 +19,22 @@ export default function App() {
   useEffect(() => {
     const loader = document.getElementById('app-loader')
     if (!loader) return
-    loader.classList.add('fade-out')
-    const t = setTimeout(() => loader.remove(), 400)
-    return () => clearTimeout(t)
+    const el = loader
+
+    function dismiss() {
+      el.classList.add('fade-out')
+      setTimeout(() => el.remove(), 400)
+    }
+
+    // Wait until every resource (JS, CSS, images) has finished loading.
+    // If the load event already fired before React mounted, dismiss now.
+    if (document.readyState === 'complete') {
+      dismiss()
+    } else {
+      window.addEventListener('load', dismiss, { once: true })
+    }
+
+    return () => window.removeEventListener('load', dismiss)
   }, [])
 
   return (
